@@ -9,5 +9,4 @@ jobs:
   lint_test:
     uses: babylonlabs-io/.github/.github/workflows/reusable_node_lint_test.yml@push
     with:
-      run-lint: true
       run-build: true
