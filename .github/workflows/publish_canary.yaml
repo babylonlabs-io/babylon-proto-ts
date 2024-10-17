@@ -1,12 +1,7 @@
 name: publish_canary
 
 on:
-  push:
-    branches:
-      - "dev"
-    tags:
-      - '*'
-
+  workflow_dispatch:
 
 jobs:
   lint_test:
