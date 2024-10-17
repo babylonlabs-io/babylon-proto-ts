@@ -1,0 +1,19 @@
+name: publish_canary
+
+on:
+  push:
+    branches:
+      - "dev"
+    tags:
+      - '*'
+
+
+jobs:
+  lint_test:
+    uses: babylonlabs-io/.github/.github/workflows/reusable_node_lint_test.yml@push
+    secrets: inherit
+    with:
+      run-lint: true
+      run-build: true
+      publish: true
+      publish-command: 'npm publish --tag canary'
