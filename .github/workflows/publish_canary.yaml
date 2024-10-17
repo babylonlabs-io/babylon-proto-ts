@@ -1,7 +1,9 @@
 name: publish_canary
 
 on:
-  workflow_dispatch:
+  pull_request:
+    branches:
+      - "**"
 
 jobs:
   lint_test:
