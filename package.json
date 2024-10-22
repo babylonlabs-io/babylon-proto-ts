@@ -1,6 +1,6 @@
 {
   "name": "@babylonlabs-io/babylon-proto-ts",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "main": "index.js",
   "scripts": {
     "build": "node scripts/build-proto.js",
