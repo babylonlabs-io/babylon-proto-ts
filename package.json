@@ -4,8 +4,7 @@
   "main": "index.js",
   "scripts": {
     "build": "node scripts/build-proto.js",
-    "prepare": "npm run build",
-    "postinstall": "npm run build"
+    "prepare": "npm run build"
   },
   "files": [
     "src/generated/**/*"
