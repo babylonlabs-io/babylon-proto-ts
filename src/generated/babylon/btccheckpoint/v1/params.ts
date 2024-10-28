@@ -40,10 +40,10 @@ function createBaseParams(): Params {
 export const Params: MessageFns<Params> = {
   encode(message: Params, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.btcConfirmationDepth !== 0) {
-      writer.uint32(8).uint64(message.btcConfirmationDepth);
+      writer.uint32(8).uint32(message.btcConfirmationDepth);
     }
     if (message.checkpointFinalizationTimeout !== 0) {
-      writer.uint32(16).uint64(message.checkpointFinalizationTimeout);
+      writer.uint32(16).uint32(message.checkpointFinalizationTimeout);
     }
     if (message.checkpointTag !== "") {
       writer.uint32(26).string(message.checkpointTag);
@@ -63,14 +63,14 @@ export const Params: MessageFns<Params> = {
             break;
           }
 
-          message.btcConfirmationDepth = longToNumber(reader.uint64());
+          message.btcConfirmationDepth = reader.uint32();
           continue;
         case 2:
           if (tag !== 16) {
             break;
           }
 
-          message.checkpointFinalizationTimeout = longToNumber(reader.uint64());
+          message.checkpointFinalizationTimeout = reader.uint32();
           continue;
         case 3:
           if (tag !== 26) {
@@ -135,17 +135,6 @@ export type DeepPartial<T> = T extends Builtin ? T
 type KeysOfUnion<T> = T extends T ? keyof T : never;
 export type Exact<P, I extends P> = P extends Builtin ? P
   : P & { [K in keyof P]: Exact<P[K], I[K]> } & { [K in Exclude<keyof I, KeysOfUnion<P>>]: never };
-
-function longToNumber(int64: { toString(): string }): number {
-  const num = globalThis.Number(int64.toString());
-  if (num > globalThis.Number.MAX_SAFE_INTEGER) {
-    throw new globalThis.Error("Value is larger than Number.MAX_SAFE_INTEGER");
-  }
-  if (num < globalThis.Number.MIN_SAFE_INTEGER) {
-    throw new globalThis.Error("Value is smaller than Number.MIN_SAFE_INTEGER");
-  }
-  return num;
-}
 
 function isSet(value: any): boolean {
   return value !== null && value !== undefined;

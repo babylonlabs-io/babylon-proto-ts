@@ -105,8 +105,12 @@ export interface RawCheckpointWithMeta {
   lifecycle: CheckpointStateUpdate[];
 }
 
-/** InjectedCheckpoint wraps the checkpoint and the extended votes */
-export interface InjectedCheckpoint {
+/**
+ * MsgInjectedCheckpoint wraps the checkpoint and the extended votes
+ * Note: this is a special message type that is only for internal ABCI++ usage
+ * for inserting checkpoint into the block
+ */
+export interface MsgInjectedCheckpoint {
   ckpt:
     | RawCheckpointWithMeta
     | undefined;
@@ -382,12 +386,12 @@ export const RawCheckpointWithMeta: MessageFns<RawCheckpointWithMeta> = {
   },
 };
 
-function createBaseInjectedCheckpoint(): InjectedCheckpoint {
+function createBaseMsgInjectedCheckpoint(): MsgInjectedCheckpoint {
   return { ckpt: undefined, extendedCommitInfo: undefined };
 }
 
-export const InjectedCheckpoint: MessageFns<InjectedCheckpoint> = {
-  encode(message: InjectedCheckpoint, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+export const MsgInjectedCheckpoint: MessageFns<MsgInjectedCheckpoint> = {
+  encode(message: MsgInjectedCheckpoint, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.ckpt !== undefined) {
       RawCheckpointWithMeta.encode(message.ckpt, writer.uint32(10).fork()).join();
     }
@@ -397,10 +401,10 @@ export const InjectedCheckpoint: MessageFns<InjectedCheckpoint> = {
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): InjectedCheckpoint {
+  decode(input: BinaryReader | Uint8Array, length?: number): MsgInjectedCheckpoint {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseInjectedCheckpoint();
+    const message = createBaseMsgInjectedCheckpoint();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -427,7 +431,7 @@ export const InjectedCheckpoint: MessageFns<InjectedCheckpoint> = {
     return message;
   },
 
-  fromJSON(object: any): InjectedCheckpoint {
+  fromJSON(object: any): MsgInjectedCheckpoint {
     return {
       ckpt: isSet(object.ckpt) ? RawCheckpointWithMeta.fromJSON(object.ckpt) : undefined,
       extendedCommitInfo: isSet(object.extendedCommitInfo)
@@ -436,7 +440,7 @@ export const InjectedCheckpoint: MessageFns<InjectedCheckpoint> = {
     };
   },
 
-  toJSON(message: InjectedCheckpoint): unknown {
+  toJSON(message: MsgInjectedCheckpoint): unknown {
     const obj: any = {};
     if (message.ckpt !== undefined) {
       obj.ckpt = RawCheckpointWithMeta.toJSON(message.ckpt);
@@ -447,11 +451,11 @@ export const InjectedCheckpoint: MessageFns<InjectedCheckpoint> = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<InjectedCheckpoint>, I>>(base?: I): InjectedCheckpoint {
-    return InjectedCheckpoint.fromPartial(base ?? ({} as any));
+  create<I extends Exact<DeepPartial<MsgInjectedCheckpoint>, I>>(base?: I): MsgInjectedCheckpoint {
+    return MsgInjectedCheckpoint.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<InjectedCheckpoint>, I>>(object: I): InjectedCheckpoint {
-    const message = createBaseInjectedCheckpoint();
+  fromPartial<I extends Exact<DeepPartial<MsgInjectedCheckpoint>, I>>(object: I): MsgInjectedCheckpoint {
+    const message = createBaseMsgInjectedCheckpoint();
     message.ckpt = (object.ckpt !== undefined && object.ckpt !== null)
       ? RawCheckpointWithMeta.fromPartial(object.ckpt)
       : undefined;

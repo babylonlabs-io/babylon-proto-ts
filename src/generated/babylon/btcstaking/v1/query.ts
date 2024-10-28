@@ -13,7 +13,6 @@ import {
   bTCDelegationStatusFromJSON,
   bTCDelegationStatusToJSON,
   CovenantAdaptorSignatures,
-  FinalityProviderWithMeta,
   SignatureInfo,
 } from "./btcstaking";
 import { Params } from "./params";
@@ -155,13 +154,40 @@ export interface QueryActiveFinalityProvidersAtHeightRequest {
   pagination: PageRequest | undefined;
 }
 
+/** ActiveFinalityProvidersAtHeightResponse wraps the FinalityProvider with metadata. */
+export interface ActiveFinalityProvidersAtHeightResponse {
+  /**
+   * btc_pk is the Bitcoin secp256k1 PK of thisfinality provider
+   * the PK follows encoding in BIP-340 spec
+   */
+  btcPkHex: string;
+  /** height is the queried Babylon height */
+  height: number;
+  /** voting_power is the voting power of this finality provider at the given height */
+  votingPower: number;
+  /**
+   * slashed_babylon_height indicates the Babylon height when
+   * the finality provider is slashed.
+   * if it's 0 then the finality provider is not slashed
+   */
+  slashedBabylonHeight: number;
+  /**
+   * slashed_btc_height indicates the BTC height when
+   * the finality provider is slashed.
+   * if it's 0 then the finality provider is not slashed
+   */
+  slashedBtcHeight: number;
+  /** jailed defines whether the finality provider is detected jailed */
+  jailed: boolean;
+}
+
 /**
  * QueryActiveFinalityProvidersAtHeightResponse is the response type for the
  * Query/ActiveFinalityProvidersAtHeight RPC method.
  */
 export interface QueryActiveFinalityProvidersAtHeightResponse {
   /** finality_providers contains all the queried finality providersn. */
-  finalityProviders: FinalityProviderWithMeta[];
+  finalityProviders: ActiveFinalityProvidersAtHeightResponse[];
   /** pagination defines the pagination in the response. */
   pagination: PageResponse | undefined;
 }
@@ -233,6 +259,8 @@ export interface BTCDelegationResponse {
    * this BTC delegation delegates to
    */
   fpBtcPkList: Uint8Array[];
+  /** staking_time is the number of blocks for which the delegation is locked on BTC chain */
+  stakingTime: number;
   /**
    * start_height is the start BTC height of the BTC delegation
    * it is the start BTC height of the timelock
@@ -283,6 +311,18 @@ export interface BTCDelegationResponse {
   paramsVersion: number;
 }
 
+/**
+ * DelegatorUnbondingInfoResponse provides all necessary info about transaction
+ * which spent the staking output
+ */
+export interface DelegatorUnbondingInfoResponse {
+  /**
+   * spend_stake_tx_hex is the transaction which spent the staking output. It is
+   * filled only if the spend_stake_tx_hex is different than the unbonding_tx_hex
+   */
+  spendStakeTxHex: string;
+}
+
 /** BTCUndelegationResponse provides all necessary info about the undeleagation */
 export interface BTCUndelegationResponse {
   /**
@@ -291,14 +331,6 @@ export interface BTCUndelegationResponse {
    * than staking output. The unbonding tx as string hex.
    */
   unbondingTxHex: string;
-  /**
-   * delegator_unbonding_sig is the signature on the unbonding tx
-   * by the delegator (i.e., SK corresponding to btc_pk).
-   * It effectively proves that the delegator wants to unbond and thus
-   * Babylon will consider this BTC delegation unbonded. Delegator's BTC
-   * on Bitcoin will be unbonded after timelock. The unbonding delegator sig as string hex.
-   */
-  delegatorUnbondingSigHex: string;
   /**
    * covenant_unbonding_sig_list is the list of signatures on the unbonding tx
    * by covenant members
@@ -319,6 +351,11 @@ export interface BTCUndelegationResponse {
    * It will be a part of the witness for the staking tx output.
    */
   covenantSlashingSigs: CovenantAdaptorSignatures[];
+  /**
+   * btc_undelegation_info contains all necessary info about the transaction
+   * which spent the staking output
+   */
+  delegatorUnbondingInfoResponse: DelegatorUnbondingInfoResponse | undefined;
 }
 
 /** BTCDelegatorDelegationsResponse is a collection of BTC delegations responses from the same delegator. */
@@ -364,8 +401,8 @@ export interface FinalityProviderResponse {
   height: number;
   /** voting_power is the voting power of this finality provider at the given height */
   votingPower: number;
-  /** sluggish defines whether the finality provider is detected sluggish */
-  sluggish: boolean;
+  /** jailed defines whether the finality provider is jailed */
+  jailed: boolean;
 }
 
 function createBaseQueryParamsRequest(): QueryParamsRequest {
@@ -1364,6 +1401,144 @@ export const QueryActiveFinalityProvidersAtHeightRequest: MessageFns<QueryActive
   },
 };
 
+function createBaseActiveFinalityProvidersAtHeightResponse(): ActiveFinalityProvidersAtHeightResponse {
+  return { btcPkHex: "", height: 0, votingPower: 0, slashedBabylonHeight: 0, slashedBtcHeight: 0, jailed: false };
+}
+
+export const ActiveFinalityProvidersAtHeightResponse: MessageFns<ActiveFinalityProvidersAtHeightResponse> = {
+  encode(message: ActiveFinalityProvidersAtHeightResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.btcPkHex !== "") {
+      writer.uint32(10).string(message.btcPkHex);
+    }
+    if (message.height !== 0) {
+      writer.uint32(16).uint64(message.height);
+    }
+    if (message.votingPower !== 0) {
+      writer.uint32(24).uint64(message.votingPower);
+    }
+    if (message.slashedBabylonHeight !== 0) {
+      writer.uint32(32).uint64(message.slashedBabylonHeight);
+    }
+    if (message.slashedBtcHeight !== 0) {
+      writer.uint32(40).uint32(message.slashedBtcHeight);
+    }
+    if (message.jailed !== false) {
+      writer.uint32(48).bool(message.jailed);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ActiveFinalityProvidersAtHeightResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseActiveFinalityProvidersAtHeightResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.btcPkHex = reader.string();
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.height = longToNumber(reader.uint64());
+          continue;
+        case 3:
+          if (tag !== 24) {
+            break;
+          }
+
+          message.votingPower = longToNumber(reader.uint64());
+          continue;
+        case 4:
+          if (tag !== 32) {
+            break;
+          }
+
+          message.slashedBabylonHeight = longToNumber(reader.uint64());
+          continue;
+        case 5:
+          if (tag !== 40) {
+            break;
+          }
+
+          message.slashedBtcHeight = reader.uint32();
+          continue;
+        case 6:
+          if (tag !== 48) {
+            break;
+          }
+
+          message.jailed = reader.bool();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ActiveFinalityProvidersAtHeightResponse {
+    return {
+      btcPkHex: isSet(object.btcPkHex) ? globalThis.String(object.btcPkHex) : "",
+      height: isSet(object.height) ? globalThis.Number(object.height) : 0,
+      votingPower: isSet(object.votingPower) ? globalThis.Number(object.votingPower) : 0,
+      slashedBabylonHeight: isSet(object.slashedBabylonHeight) ? globalThis.Number(object.slashedBabylonHeight) : 0,
+      slashedBtcHeight: isSet(object.slashedBtcHeight) ? globalThis.Number(object.slashedBtcHeight) : 0,
+      jailed: isSet(object.jailed) ? globalThis.Boolean(object.jailed) : false,
+    };
+  },
+
+  toJSON(message: ActiveFinalityProvidersAtHeightResponse): unknown {
+    const obj: any = {};
+    if (message.btcPkHex !== "") {
+      obj.btcPkHex = message.btcPkHex;
+    }
+    if (message.height !== 0) {
+      obj.height = Math.round(message.height);
+    }
+    if (message.votingPower !== 0) {
+      obj.votingPower = Math.round(message.votingPower);
+    }
+    if (message.slashedBabylonHeight !== 0) {
+      obj.slashedBabylonHeight = Math.round(message.slashedBabylonHeight);
+    }
+    if (message.slashedBtcHeight !== 0) {
+      obj.slashedBtcHeight = Math.round(message.slashedBtcHeight);
+    }
+    if (message.jailed !== false) {
+      obj.jailed = message.jailed;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ActiveFinalityProvidersAtHeightResponse>, I>>(
+    base?: I,
+  ): ActiveFinalityProvidersAtHeightResponse {
+    return ActiveFinalityProvidersAtHeightResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ActiveFinalityProvidersAtHeightResponse>, I>>(
+    object: I,
+  ): ActiveFinalityProvidersAtHeightResponse {
+    const message = createBaseActiveFinalityProvidersAtHeightResponse();
+    message.btcPkHex = object.btcPkHex ?? "";
+    message.height = object.height ?? 0;
+    message.votingPower = object.votingPower ?? 0;
+    message.slashedBabylonHeight = object.slashedBabylonHeight ?? 0;
+    message.slashedBtcHeight = object.slashedBtcHeight ?? 0;
+    message.jailed = object.jailed ?? false;
+    return message;
+  },
+};
+
 function createBaseQueryActiveFinalityProvidersAtHeightResponse(): QueryActiveFinalityProvidersAtHeightResponse {
   return { finalityProviders: [], pagination: undefined };
 }
@@ -1374,7 +1549,7 @@ export const QueryActiveFinalityProvidersAtHeightResponse: MessageFns<QueryActiv
     writer: BinaryWriter = new BinaryWriter(),
   ): BinaryWriter {
     for (const v of message.finalityProviders) {
-      FinalityProviderWithMeta.encode(v!, writer.uint32(10).fork()).join();
+      ActiveFinalityProvidersAtHeightResponse.encode(v!, writer.uint32(10).fork()).join();
     }
     if (message.pagination !== undefined) {
       PageResponse.encode(message.pagination, writer.uint32(18).fork()).join();
@@ -1394,7 +1569,7 @@ export const QueryActiveFinalityProvidersAtHeightResponse: MessageFns<QueryActiv
             break;
           }
 
-          message.finalityProviders.push(FinalityProviderWithMeta.decode(reader, reader.uint32()));
+          message.finalityProviders.push(ActiveFinalityProvidersAtHeightResponse.decode(reader, reader.uint32()));
           continue;
         case 2:
           if (tag !== 18) {
@@ -1415,7 +1590,7 @@ export const QueryActiveFinalityProvidersAtHeightResponse: MessageFns<QueryActiv
   fromJSON(object: any): QueryActiveFinalityProvidersAtHeightResponse {
     return {
       finalityProviders: globalThis.Array.isArray(object?.finalityProviders)
-        ? object.finalityProviders.map((e: any) => FinalityProviderWithMeta.fromJSON(e))
+        ? object.finalityProviders.map((e: any) => ActiveFinalityProvidersAtHeightResponse.fromJSON(e))
         : [],
       pagination: isSet(object.pagination) ? PageResponse.fromJSON(object.pagination) : undefined,
     };
@@ -1424,7 +1599,7 @@ export const QueryActiveFinalityProvidersAtHeightResponse: MessageFns<QueryActiv
   toJSON(message: QueryActiveFinalityProvidersAtHeightResponse): unknown {
     const obj: any = {};
     if (message.finalityProviders?.length) {
-      obj.finalityProviders = message.finalityProviders.map((e) => FinalityProviderWithMeta.toJSON(e));
+      obj.finalityProviders = message.finalityProviders.map((e) => ActiveFinalityProvidersAtHeightResponse.toJSON(e));
     }
     if (message.pagination !== undefined) {
       obj.pagination = PageResponse.toJSON(message.pagination);
@@ -1441,7 +1616,8 @@ export const QueryActiveFinalityProvidersAtHeightResponse: MessageFns<QueryActiv
     object: I,
   ): QueryActiveFinalityProvidersAtHeightResponse {
     const message = createBaseQueryActiveFinalityProvidersAtHeightResponse();
-    message.finalityProviders = object.finalityProviders?.map((e) => FinalityProviderWithMeta.fromPartial(e)) || [];
+    message.finalityProviders =
+      object.finalityProviders?.map((e) => ActiveFinalityProvidersAtHeightResponse.fromPartial(e)) || [];
     message.pagination = (object.pagination !== undefined && object.pagination !== null)
       ? PageResponse.fromPartial(object.pagination)
       : undefined;
@@ -1837,6 +2013,7 @@ function createBaseBTCDelegationResponse(): BTCDelegationResponse {
     stakerAddr: "",
     btcPk: new Uint8Array(0),
     fpBtcPkList: [],
+    stakingTime: 0,
     startHeight: 0,
     endHeight: 0,
     totalSat: 0,
@@ -1864,44 +2041,47 @@ export const BTCDelegationResponse: MessageFns<BTCDelegationResponse> = {
     for (const v of message.fpBtcPkList) {
       writer.uint32(26).bytes(v!);
     }
+    if (message.stakingTime !== 0) {
+      writer.uint32(32).uint32(message.stakingTime);
+    }
     if (message.startHeight !== 0) {
-      writer.uint32(32).uint64(message.startHeight);
+      writer.uint32(40).uint32(message.startHeight);
     }
     if (message.endHeight !== 0) {
-      writer.uint32(40).uint64(message.endHeight);
+      writer.uint32(48).uint32(message.endHeight);
     }
     if (message.totalSat !== 0) {
-      writer.uint32(48).uint64(message.totalSat);
+      writer.uint32(56).uint64(message.totalSat);
     }
     if (message.stakingTxHex !== "") {
-      writer.uint32(58).string(message.stakingTxHex);
+      writer.uint32(66).string(message.stakingTxHex);
     }
     if (message.slashingTxHex !== "") {
-      writer.uint32(66).string(message.slashingTxHex);
+      writer.uint32(74).string(message.slashingTxHex);
     }
     if (message.delegatorSlashSigHex !== "") {
-      writer.uint32(74).string(message.delegatorSlashSigHex);
+      writer.uint32(82).string(message.delegatorSlashSigHex);
     }
     for (const v of message.covenantSigs) {
-      CovenantAdaptorSignatures.encode(v!, writer.uint32(82).fork()).join();
+      CovenantAdaptorSignatures.encode(v!, writer.uint32(90).fork()).join();
     }
     if (message.stakingOutputIdx !== 0) {
-      writer.uint32(88).uint32(message.stakingOutputIdx);
+      writer.uint32(96).uint32(message.stakingOutputIdx);
     }
     if (message.active !== false) {
-      writer.uint32(96).bool(message.active);
+      writer.uint32(104).bool(message.active);
     }
     if (message.statusDesc !== "") {
-      writer.uint32(106).string(message.statusDesc);
+      writer.uint32(114).string(message.statusDesc);
     }
     if (message.unbondingTime !== 0) {
-      writer.uint32(112).uint32(message.unbondingTime);
+      writer.uint32(120).uint32(message.unbondingTime);
     }
     if (message.undelegationResponse !== undefined) {
-      BTCUndelegationResponse.encode(message.undelegationResponse, writer.uint32(122).fork()).join();
+      BTCUndelegationResponse.encode(message.undelegationResponse, writer.uint32(130).fork()).join();
     }
     if (message.paramsVersion !== 0) {
-      writer.uint32(128).uint32(message.paramsVersion);
+      writer.uint32(136).uint32(message.paramsVersion);
     }
     return writer;
   },
@@ -1939,87 +2119,94 @@ export const BTCDelegationResponse: MessageFns<BTCDelegationResponse> = {
             break;
           }
 
-          message.startHeight = longToNumber(reader.uint64());
+          message.stakingTime = reader.uint32();
           continue;
         case 5:
           if (tag !== 40) {
             break;
           }
 
-          message.endHeight = longToNumber(reader.uint64());
+          message.startHeight = reader.uint32();
           continue;
         case 6:
           if (tag !== 48) {
             break;
           }
 
-          message.totalSat = longToNumber(reader.uint64());
+          message.endHeight = reader.uint32();
           continue;
         case 7:
-          if (tag !== 58) {
+          if (tag !== 56) {
             break;
           }
 
-          message.stakingTxHex = reader.string();
+          message.totalSat = longToNumber(reader.uint64());
           continue;
         case 8:
           if (tag !== 66) {
             break;
           }
 
-          message.slashingTxHex = reader.string();
+          message.stakingTxHex = reader.string();
           continue;
         case 9:
           if (tag !== 74) {
             break;
           }
 
-          message.delegatorSlashSigHex = reader.string();
+          message.slashingTxHex = reader.string();
           continue;
         case 10:
           if (tag !== 82) {
             break;
           }
 
-          message.covenantSigs.push(CovenantAdaptorSignatures.decode(reader, reader.uint32()));
+          message.delegatorSlashSigHex = reader.string();
           continue;
         case 11:
-          if (tag !== 88) {
+          if (tag !== 90) {
             break;
           }
 
-          message.stakingOutputIdx = reader.uint32();
+          message.covenantSigs.push(CovenantAdaptorSignatures.decode(reader, reader.uint32()));
           continue;
         case 12:
           if (tag !== 96) {
             break;
           }
 
-          message.active = reader.bool();
+          message.stakingOutputIdx = reader.uint32();
           continue;
         case 13:
-          if (tag !== 106) {
+          if (tag !== 104) {
+            break;
+          }
+
+          message.active = reader.bool();
+          continue;
+        case 14:
+          if (tag !== 114) {
             break;
           }
 
           message.statusDesc = reader.string();
           continue;
-        case 14:
-          if (tag !== 112) {
+        case 15:
+          if (tag !== 120) {
             break;
           }
 
           message.unbondingTime = reader.uint32();
           continue;
-        case 15:
-          if (tag !== 122) {
+        case 16:
+          if (tag !== 130) {
             break;
           }
 
           message.undelegationResponse = BTCUndelegationResponse.decode(reader, reader.uint32());
           continue;
-        case 16:
-          if (tag !== 128) {
+        case 17:
+          if (tag !== 136) {
             break;
           }
 
@@ -2041,6 +2228,7 @@ export const BTCDelegationResponse: MessageFns<BTCDelegationResponse> = {
       fpBtcPkList: globalThis.Array.isArray(object?.fpBtcPkList)
         ? object.fpBtcPkList.map((e: any) => bytesFromBase64(e))
         : [],
+      stakingTime: isSet(object.stakingTime) ? globalThis.Number(object.stakingTime) : 0,
       startHeight: isSet(object.startHeight) ? globalThis.Number(object.startHeight) : 0,
       endHeight: isSet(object.endHeight) ? globalThis.Number(object.endHeight) : 0,
       totalSat: isSet(object.totalSat) ? globalThis.Number(object.totalSat) : 0,
@@ -2071,6 +2259,9 @@ export const BTCDelegationResponse: MessageFns<BTCDelegationResponse> = {
     }
     if (message.fpBtcPkList?.length) {
       obj.fpBtcPkList = message.fpBtcPkList.map((e) => base64FromBytes(e));
+    }
+    if (message.stakingTime !== 0) {
+      obj.stakingTime = Math.round(message.stakingTime);
     }
     if (message.startHeight !== 0) {
       obj.startHeight = Math.round(message.startHeight);
@@ -2122,6 +2313,7 @@ export const BTCDelegationResponse: MessageFns<BTCDelegationResponse> = {
     message.stakerAddr = object.stakerAddr ?? "";
     message.btcPk = object.btcPk ?? new Uint8Array(0);
     message.fpBtcPkList = object.fpBtcPkList?.map((e) => e) || [];
+    message.stakingTime = object.stakingTime ?? 0;
     message.startHeight = object.startHeight ?? 0;
     message.endHeight = object.endHeight ?? 0;
     message.totalSat = object.totalSat ?? 0;
@@ -2141,14 +2333,73 @@ export const BTCDelegationResponse: MessageFns<BTCDelegationResponse> = {
   },
 };
 
+function createBaseDelegatorUnbondingInfoResponse(): DelegatorUnbondingInfoResponse {
+  return { spendStakeTxHex: "" };
+}
+
+export const DelegatorUnbondingInfoResponse: MessageFns<DelegatorUnbondingInfoResponse> = {
+  encode(message: DelegatorUnbondingInfoResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.spendStakeTxHex !== "") {
+      writer.uint32(10).string(message.spendStakeTxHex);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): DelegatorUnbondingInfoResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseDelegatorUnbondingInfoResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.spendStakeTxHex = reader.string();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): DelegatorUnbondingInfoResponse {
+    return { spendStakeTxHex: isSet(object.spendStakeTxHex) ? globalThis.String(object.spendStakeTxHex) : "" };
+  },
+
+  toJSON(message: DelegatorUnbondingInfoResponse): unknown {
+    const obj: any = {};
+    if (message.spendStakeTxHex !== "") {
+      obj.spendStakeTxHex = message.spendStakeTxHex;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<DelegatorUnbondingInfoResponse>, I>>(base?: I): DelegatorUnbondingInfoResponse {
+    return DelegatorUnbondingInfoResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<DelegatorUnbondingInfoResponse>, I>>(
+    object: I,
+  ): DelegatorUnbondingInfoResponse {
+    const message = createBaseDelegatorUnbondingInfoResponse();
+    message.spendStakeTxHex = object.spendStakeTxHex ?? "";
+    return message;
+  },
+};
+
 function createBaseBTCUndelegationResponse(): BTCUndelegationResponse {
   return {
     unbondingTxHex: "",
-    delegatorUnbondingSigHex: "",
     covenantUnbondingSigList: [],
     slashingTxHex: "",
     delegatorSlashingSigHex: "",
     covenantSlashingSigs: [],
+    delegatorUnbondingInfoResponse: undefined,
   };
 }
 
@@ -2157,20 +2408,20 @@ export const BTCUndelegationResponse: MessageFns<BTCUndelegationResponse> = {
     if (message.unbondingTxHex !== "") {
       writer.uint32(10).string(message.unbondingTxHex);
     }
-    if (message.delegatorUnbondingSigHex !== "") {
-      writer.uint32(18).string(message.delegatorUnbondingSigHex);
-    }
     for (const v of message.covenantUnbondingSigList) {
-      SignatureInfo.encode(v!, writer.uint32(26).fork()).join();
+      SignatureInfo.encode(v!, writer.uint32(18).fork()).join();
     }
     if (message.slashingTxHex !== "") {
-      writer.uint32(34).string(message.slashingTxHex);
+      writer.uint32(26).string(message.slashingTxHex);
     }
     if (message.delegatorSlashingSigHex !== "") {
-      writer.uint32(42).string(message.delegatorSlashingSigHex);
+      writer.uint32(34).string(message.delegatorSlashingSigHex);
     }
     for (const v of message.covenantSlashingSigs) {
-      CovenantAdaptorSignatures.encode(v!, writer.uint32(50).fork()).join();
+      CovenantAdaptorSignatures.encode(v!, writer.uint32(42).fork()).join();
+    }
+    if (message.delegatorUnbondingInfoResponse !== undefined) {
+      DelegatorUnbondingInfoResponse.encode(message.delegatorUnbondingInfoResponse, writer.uint32(50).fork()).join();
     }
     return writer;
   },
@@ -2194,35 +2445,35 @@ export const BTCUndelegationResponse: MessageFns<BTCUndelegationResponse> = {
             break;
           }
 
-          message.delegatorUnbondingSigHex = reader.string();
+          message.covenantUnbondingSigList.push(SignatureInfo.decode(reader, reader.uint32()));
           continue;
         case 3:
           if (tag !== 26) {
             break;
           }
 
-          message.covenantUnbondingSigList.push(SignatureInfo.decode(reader, reader.uint32()));
+          message.slashingTxHex = reader.string();
           continue;
         case 4:
           if (tag !== 34) {
             break;
           }
 
-          message.slashingTxHex = reader.string();
+          message.delegatorSlashingSigHex = reader.string();
           continue;
         case 5:
           if (tag !== 42) {
             break;
           }
 
-          message.delegatorSlashingSigHex = reader.string();
+          message.covenantSlashingSigs.push(CovenantAdaptorSignatures.decode(reader, reader.uint32()));
           continue;
         case 6:
           if (tag !== 50) {
             break;
           }
 
-          message.covenantSlashingSigs.push(CovenantAdaptorSignatures.decode(reader, reader.uint32()));
+          message.delegatorUnbondingInfoResponse = DelegatorUnbondingInfoResponse.decode(reader, reader.uint32());
           continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
@@ -2236,9 +2487,6 @@ export const BTCUndelegationResponse: MessageFns<BTCUndelegationResponse> = {
   fromJSON(object: any): BTCUndelegationResponse {
     return {
       unbondingTxHex: isSet(object.unbondingTxHex) ? globalThis.String(object.unbondingTxHex) : "",
-      delegatorUnbondingSigHex: isSet(object.delegatorUnbondingSigHex)
-        ? globalThis.String(object.delegatorUnbondingSigHex)
-        : "",
       covenantUnbondingSigList: globalThis.Array.isArray(object?.covenantUnbondingSigList)
         ? object.covenantUnbondingSigList.map((e: any) => SignatureInfo.fromJSON(e))
         : [],
@@ -2249,6 +2497,9 @@ export const BTCUndelegationResponse: MessageFns<BTCUndelegationResponse> = {
       covenantSlashingSigs: globalThis.Array.isArray(object?.covenantSlashingSigs)
         ? object.covenantSlashingSigs.map((e: any) => CovenantAdaptorSignatures.fromJSON(e))
         : [],
+      delegatorUnbondingInfoResponse: isSet(object.delegatorUnbondingInfoResponse)
+        ? DelegatorUnbondingInfoResponse.fromJSON(object.delegatorUnbondingInfoResponse)
+        : undefined,
     };
   },
 
@@ -2256,9 +2507,6 @@ export const BTCUndelegationResponse: MessageFns<BTCUndelegationResponse> = {
     const obj: any = {};
     if (message.unbondingTxHex !== "") {
       obj.unbondingTxHex = message.unbondingTxHex;
-    }
-    if (message.delegatorUnbondingSigHex !== "") {
-      obj.delegatorUnbondingSigHex = message.delegatorUnbondingSigHex;
     }
     if (message.covenantUnbondingSigList?.length) {
       obj.covenantUnbondingSigList = message.covenantUnbondingSigList.map((e) => SignatureInfo.toJSON(e));
@@ -2272,6 +2520,11 @@ export const BTCUndelegationResponse: MessageFns<BTCUndelegationResponse> = {
     if (message.covenantSlashingSigs?.length) {
       obj.covenantSlashingSigs = message.covenantSlashingSigs.map((e) => CovenantAdaptorSignatures.toJSON(e));
     }
+    if (message.delegatorUnbondingInfoResponse !== undefined) {
+      obj.delegatorUnbondingInfoResponse = DelegatorUnbondingInfoResponse.toJSON(
+        message.delegatorUnbondingInfoResponse,
+      );
+    }
     return obj;
   },
 
@@ -2281,12 +2534,15 @@ export const BTCUndelegationResponse: MessageFns<BTCUndelegationResponse> = {
   fromPartial<I extends Exact<DeepPartial<BTCUndelegationResponse>, I>>(object: I): BTCUndelegationResponse {
     const message = createBaseBTCUndelegationResponse();
     message.unbondingTxHex = object.unbondingTxHex ?? "";
-    message.delegatorUnbondingSigHex = object.delegatorUnbondingSigHex ?? "";
     message.covenantUnbondingSigList = object.covenantUnbondingSigList?.map((e) => SignatureInfo.fromPartial(e)) || [];
     message.slashingTxHex = object.slashingTxHex ?? "";
     message.delegatorSlashingSigHex = object.delegatorSlashingSigHex ?? "";
     message.covenantSlashingSigs = object.covenantSlashingSigs?.map((e) => CovenantAdaptorSignatures.fromPartial(e)) ||
       [];
+    message.delegatorUnbondingInfoResponse =
+      (object.delegatorUnbondingInfoResponse !== undefined && object.delegatorUnbondingInfoResponse !== null)
+        ? DelegatorUnbondingInfoResponse.fromPartial(object.delegatorUnbondingInfoResponse)
+        : undefined;
     return message;
   },
 };
@@ -2365,7 +2621,7 @@ function createBaseFinalityProviderResponse(): FinalityProviderResponse {
     slashedBtcHeight: 0,
     height: 0,
     votingPower: 0,
-    sluggish: false,
+    jailed: false,
   };
 }
 
@@ -2390,7 +2646,7 @@ export const FinalityProviderResponse: MessageFns<FinalityProviderResponse> = {
       writer.uint32(48).uint64(message.slashedBabylonHeight);
     }
     if (message.slashedBtcHeight !== 0) {
-      writer.uint32(56).uint64(message.slashedBtcHeight);
+      writer.uint32(56).uint32(message.slashedBtcHeight);
     }
     if (message.height !== 0) {
       writer.uint32(64).uint64(message.height);
@@ -2398,8 +2654,8 @@ export const FinalityProviderResponse: MessageFns<FinalityProviderResponse> = {
     if (message.votingPower !== 0) {
       writer.uint32(72).uint64(message.votingPower);
     }
-    if (message.sluggish !== false) {
-      writer.uint32(80).bool(message.sluggish);
+    if (message.jailed !== false) {
+      writer.uint32(80).bool(message.jailed);
     }
     return writer;
   },
@@ -2458,7 +2714,7 @@ export const FinalityProviderResponse: MessageFns<FinalityProviderResponse> = {
             break;
           }
 
-          message.slashedBtcHeight = longToNumber(reader.uint64());
+          message.slashedBtcHeight = reader.uint32();
           continue;
         case 8:
           if (tag !== 64) {
@@ -2479,7 +2735,7 @@ export const FinalityProviderResponse: MessageFns<FinalityProviderResponse> = {
             break;
           }
 
-          message.sluggish = reader.bool();
+          message.jailed = reader.bool();
           continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
@@ -2501,7 +2757,7 @@ export const FinalityProviderResponse: MessageFns<FinalityProviderResponse> = {
       slashedBtcHeight: isSet(object.slashedBtcHeight) ? globalThis.Number(object.slashedBtcHeight) : 0,
       height: isSet(object.height) ? globalThis.Number(object.height) : 0,
       votingPower: isSet(object.votingPower) ? globalThis.Number(object.votingPower) : 0,
-      sluggish: isSet(object.sluggish) ? globalThis.Boolean(object.sluggish) : false,
+      jailed: isSet(object.jailed) ? globalThis.Boolean(object.jailed) : false,
     };
   },
 
@@ -2534,8 +2790,8 @@ export const FinalityProviderResponse: MessageFns<FinalityProviderResponse> = {
     if (message.votingPower !== 0) {
       obj.votingPower = Math.round(message.votingPower);
     }
-    if (message.sluggish !== false) {
-      obj.sluggish = message.sluggish;
+    if (message.jailed !== false) {
+      obj.jailed = message.jailed;
     }
     return obj;
   },
@@ -2558,7 +2814,7 @@ export const FinalityProviderResponse: MessageFns<FinalityProviderResponse> = {
     message.slashedBtcHeight = object.slashedBtcHeight ?? 0;
     message.height = object.height ?? 0;
     message.votingPower = object.votingPower ?? 0;
-    message.sluggish = object.sluggish ?? false;
+    message.jailed = object.jailed ?? false;
     return message;
   },
 };
