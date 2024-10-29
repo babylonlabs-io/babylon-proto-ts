@@ -6,6 +6,7 @@
 
 /* eslint-disable */
 import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
+import { Duration } from "../../../google/protobuf/duration";
 
 export const protobufPackage = "babylon.finality.v1";
 
@@ -20,7 +21,7 @@ export interface Params {
   finalitySigTimeout: number;
   /**
    * min_signed_per_window defines the minimum number of blocks that a finality provider is required to sign
-   * within the sliding window to avoid being detected as sluggish
+   * within the sliding window to avoid being jailed
    */
   minSignedPerWindow: Uint8Array;
   /**
@@ -28,10 +29,27 @@ export interface Params {
    * message should commit
    */
   minPubRand: number;
+  /** jail_duration is the minimum period of time that a finality provider remains jailed */
+  jailDuration:
+    | Duration
+    | undefined;
+  /**
+   * finality_activation_height is the babylon block height which the finality module will
+   * start to accept finality voting and the minimum allowed value for the public randomness
+   * commit start height.
+   */
+  finalityActivationHeight: number;
 }
 
 function createBaseParams(): Params {
-  return { signedBlocksWindow: 0, finalitySigTimeout: 0, minSignedPerWindow: new Uint8Array(0), minPubRand: 0 };
+  return {
+    signedBlocksWindow: 0,
+    finalitySigTimeout: 0,
+    minSignedPerWindow: new Uint8Array(0),
+    minPubRand: 0,
+    jailDuration: undefined,
+    finalityActivationHeight: 0,
+  };
 }
 
 export const Params: MessageFns<Params> = {
@@ -47,6 +65,12 @@ export const Params: MessageFns<Params> = {
     }
     if (message.minPubRand !== 0) {
       writer.uint32(32).uint64(message.minPubRand);
+    }
+    if (message.jailDuration !== undefined) {
+      Duration.encode(message.jailDuration, writer.uint32(42).fork()).join();
+    }
+    if (message.finalityActivationHeight !== 0) {
+      writer.uint32(48).uint64(message.finalityActivationHeight);
     }
     return writer;
   },
@@ -86,6 +110,20 @@ export const Params: MessageFns<Params> = {
 
           message.minPubRand = longToNumber(reader.uint64());
           continue;
+        case 5:
+          if (tag !== 42) {
+            break;
+          }
+
+          message.jailDuration = Duration.decode(reader, reader.uint32());
+          continue;
+        case 6:
+          if (tag !== 48) {
+            break;
+          }
+
+          message.finalityActivationHeight = longToNumber(reader.uint64());
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -103,6 +141,10 @@ export const Params: MessageFns<Params> = {
         ? bytesFromBase64(object.minSignedPerWindow)
         : new Uint8Array(0),
       minPubRand: isSet(object.minPubRand) ? globalThis.Number(object.minPubRand) : 0,
+      jailDuration: isSet(object.jailDuration) ? Duration.fromJSON(object.jailDuration) : undefined,
+      finalityActivationHeight: isSet(object.finalityActivationHeight)
+        ? globalThis.Number(object.finalityActivationHeight)
+        : 0,
     };
   },
 
@@ -120,6 +162,12 @@ export const Params: MessageFns<Params> = {
     if (message.minPubRand !== 0) {
       obj.minPubRand = Math.round(message.minPubRand);
     }
+    if (message.jailDuration !== undefined) {
+      obj.jailDuration = Duration.toJSON(message.jailDuration);
+    }
+    if (message.finalityActivationHeight !== 0) {
+      obj.finalityActivationHeight = Math.round(message.finalityActivationHeight);
+    }
     return obj;
   },
 
@@ -132,6 +180,10 @@ export const Params: MessageFns<Params> = {
     message.finalitySigTimeout = object.finalitySigTimeout ?? 0;
     message.minSignedPerWindow = object.minSignedPerWindow ?? new Uint8Array(0);
     message.minPubRand = object.minPubRand ?? 0;
+    message.jailDuration = (object.jailDuration !== undefined && object.jailDuration !== null)
+      ? Duration.fromPartial(object.jailDuration)
+      : undefined;
+    message.finalityActivationHeight = object.finalityActivationHeight ?? 0;
     return message;
   },
 };

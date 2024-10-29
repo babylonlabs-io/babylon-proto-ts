@@ -7,7 +7,7 @@
 /* eslint-disable */
 import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
 import { Description } from "../../../cosmos/staking/v1beta1/staking";
-import { TransactionInfo } from "../../btccheckpoint/v1/btccheckpoint";
+import { InclusionProof } from "./btcstaking";
 import { Params } from "./params";
 import { ProofOfPossessionBTC } from "./pop";
 
@@ -76,9 +76,11 @@ export interface MsgCreateBTCDelegation {
   stakingTime: number;
   /** staking_value  is the amount of satoshis locked in staking output */
   stakingValue: number;
-  /** staking_tx is the staking tx along with the merkle proof of inclusion in btc block */
-  stakingTx:
-    | TransactionInfo
+  /** staking_tx is a bitcoin staking transaction i.e transaction that locks funds */
+  stakingTx: Uint8Array;
+  /** staking_tx_inclusion_proof is the inclusion proof of the staking tx in BTC chain */
+  stakingTxInclusionProof:
+    | InclusionProof
     | undefined;
   /**
    * slashing_tx is the slashing tx
@@ -122,6 +124,22 @@ export interface MsgCreateBTCDelegation {
 
 /** MsgCreateBTCDelegationResponse is the response for MsgCreateBTCDelegation */
 export interface MsgCreateBTCDelegationResponse {
+}
+
+/** MsgAddBTCDelegationInclusionProof is the message for adding proof of inclusion of BTC delegation on BTC chain */
+export interface MsgAddBTCDelegationInclusionProof {
+  signer: string;
+  /**
+   * staking_tx_hash is the hash of the staking tx.
+   * It uniquely identifies a BTC delegation
+   */
+  stakingTxHash: string;
+  /** staking_tx_inclusion_proof is the inclusion proof of the staking tx in BTC chain */
+  stakingTxInclusionProof: InclusionProof | undefined;
+}
+
+/** MsgAddBTCDelegationInclusionProofResponse is the response for MsgAddBTCDelegationInclusionProof */
+export interface MsgAddBTCDelegationInclusionProofResponse {
 }
 
 /** MsgAddCovenantSigs is the message for handling signatures from a covenant member */
@@ -171,10 +189,15 @@ export interface MsgBTCUndelegate {
    */
   stakingTxHash: string;
   /**
-   * unbonding_tx_sig is the signature of the staker on the unbonding tx submitted to babylon
-   * the signature follows encoding in BIP-340 spec
+   * stake_spending_tx is a bitcoin transaction that spends the staking transaction
+   * i.e it has staking output as an input
    */
-  unbondingTxSig: Uint8Array;
+  stakeSpendingTx: Uint8Array;
+  /**
+   * spend_spending_tx_inclusion_proof is the proof of inclusion of the
+   * stake_spending_tx in the BTC chain
+   */
+  stakeSpendingTxInclusionProof: InclusionProof | undefined;
 }
 
 /** MsgBTCUndelegateResponse is the response for MsgBTCUndelegate */
@@ -553,7 +576,8 @@ function createBaseMsgCreateBTCDelegation(): MsgCreateBTCDelegation {
     fpBtcPkList: [],
     stakingTime: 0,
     stakingValue: 0,
-    stakingTx: undefined,
+    stakingTx: new Uint8Array(0),
+    stakingTxInclusionProof: undefined,
     slashingTx: new Uint8Array(0),
     delegatorSlashingSig: new Uint8Array(0),
     unbondingTime: 0,
@@ -584,29 +608,32 @@ export const MsgCreateBTCDelegation: MessageFns<MsgCreateBTCDelegation> = {
     if (message.stakingValue !== 0) {
       writer.uint32(48).int64(message.stakingValue);
     }
-    if (message.stakingTx !== undefined) {
-      TransactionInfo.encode(message.stakingTx, writer.uint32(58).fork()).join();
+    if (message.stakingTx.length !== 0) {
+      writer.uint32(58).bytes(message.stakingTx);
+    }
+    if (message.stakingTxInclusionProof !== undefined) {
+      InclusionProof.encode(message.stakingTxInclusionProof, writer.uint32(66).fork()).join();
     }
     if (message.slashingTx.length !== 0) {
-      writer.uint32(66).bytes(message.slashingTx);
+      writer.uint32(74).bytes(message.slashingTx);
     }
     if (message.delegatorSlashingSig.length !== 0) {
-      writer.uint32(74).bytes(message.delegatorSlashingSig);
+      writer.uint32(82).bytes(message.delegatorSlashingSig);
     }
     if (message.unbondingTime !== 0) {
-      writer.uint32(80).uint32(message.unbondingTime);
+      writer.uint32(88).uint32(message.unbondingTime);
     }
     if (message.unbondingTx.length !== 0) {
-      writer.uint32(90).bytes(message.unbondingTx);
+      writer.uint32(98).bytes(message.unbondingTx);
     }
     if (message.unbondingValue !== 0) {
-      writer.uint32(96).int64(message.unbondingValue);
+      writer.uint32(104).int64(message.unbondingValue);
     }
     if (message.unbondingSlashingTx.length !== 0) {
-      writer.uint32(106).bytes(message.unbondingSlashingTx);
+      writer.uint32(114).bytes(message.unbondingSlashingTx);
     }
     if (message.delegatorUnbondingSlashingSig.length !== 0) {
-      writer.uint32(114).bytes(message.delegatorUnbondingSlashingSig);
+      writer.uint32(122).bytes(message.delegatorUnbondingSlashingSig);
     }
     return writer;
   },
@@ -665,52 +692,59 @@ export const MsgCreateBTCDelegation: MessageFns<MsgCreateBTCDelegation> = {
             break;
           }
 
-          message.stakingTx = TransactionInfo.decode(reader, reader.uint32());
+          message.stakingTx = reader.bytes();
           continue;
         case 8:
           if (tag !== 66) {
             break;
           }
 
-          message.slashingTx = reader.bytes();
+          message.stakingTxInclusionProof = InclusionProof.decode(reader, reader.uint32());
           continue;
         case 9:
           if (tag !== 74) {
             break;
           }
 
-          message.delegatorSlashingSig = reader.bytes();
+          message.slashingTx = reader.bytes();
           continue;
         case 10:
-          if (tag !== 80) {
+          if (tag !== 82) {
+            break;
+          }
+
+          message.delegatorSlashingSig = reader.bytes();
+          continue;
+        case 11:
+          if (tag !== 88) {
             break;
           }
 
           message.unbondingTime = reader.uint32();
           continue;
-        case 11:
-          if (tag !== 90) {
+        case 12:
+          if (tag !== 98) {
             break;
           }
 
           message.unbondingTx = reader.bytes();
           continue;
-        case 12:
-          if (tag !== 96) {
+        case 13:
+          if (tag !== 104) {
             break;
           }
 
           message.unbondingValue = longToNumber(reader.int64());
           continue;
-        case 13:
-          if (tag !== 106) {
+        case 14:
+          if (tag !== 114) {
             break;
           }
 
           message.unbondingSlashingTx = reader.bytes();
           continue;
-        case 14:
-          if (tag !== 114) {
+        case 15:
+          if (tag !== 122) {
             break;
           }
 
@@ -735,7 +769,10 @@ export const MsgCreateBTCDelegation: MessageFns<MsgCreateBTCDelegation> = {
         : [],
       stakingTime: isSet(object.stakingTime) ? globalThis.Number(object.stakingTime) : 0,
       stakingValue: isSet(object.stakingValue) ? globalThis.Number(object.stakingValue) : 0,
-      stakingTx: isSet(object.stakingTx) ? TransactionInfo.fromJSON(object.stakingTx) : undefined,
+      stakingTx: isSet(object.stakingTx) ? bytesFromBase64(object.stakingTx) : new Uint8Array(0),
+      stakingTxInclusionProof: isSet(object.stakingTxInclusionProof)
+        ? InclusionProof.fromJSON(object.stakingTxInclusionProof)
+        : undefined,
       slashingTx: isSet(object.slashingTx) ? bytesFromBase64(object.slashingTx) : new Uint8Array(0),
       delegatorSlashingSig: isSet(object.delegatorSlashingSig)
         ? bytesFromBase64(object.delegatorSlashingSig)
@@ -772,8 +809,11 @@ export const MsgCreateBTCDelegation: MessageFns<MsgCreateBTCDelegation> = {
     if (message.stakingValue !== 0) {
       obj.stakingValue = Math.round(message.stakingValue);
     }
-    if (message.stakingTx !== undefined) {
-      obj.stakingTx = TransactionInfo.toJSON(message.stakingTx);
+    if (message.stakingTx.length !== 0) {
+      obj.stakingTx = base64FromBytes(message.stakingTx);
+    }
+    if (message.stakingTxInclusionProof !== undefined) {
+      obj.stakingTxInclusionProof = InclusionProof.toJSON(message.stakingTxInclusionProof);
     }
     if (message.slashingTx.length !== 0) {
       obj.slashingTx = base64FromBytes(message.slashingTx);
@@ -812,9 +852,11 @@ export const MsgCreateBTCDelegation: MessageFns<MsgCreateBTCDelegation> = {
     message.fpBtcPkList = object.fpBtcPkList?.map((e) => e) || [];
     message.stakingTime = object.stakingTime ?? 0;
     message.stakingValue = object.stakingValue ?? 0;
-    message.stakingTx = (object.stakingTx !== undefined && object.stakingTx !== null)
-      ? TransactionInfo.fromPartial(object.stakingTx)
-      : undefined;
+    message.stakingTx = object.stakingTx ?? new Uint8Array(0);
+    message.stakingTxInclusionProof =
+      (object.stakingTxInclusionProof !== undefined && object.stakingTxInclusionProof !== null)
+        ? InclusionProof.fromPartial(object.stakingTxInclusionProof)
+        : undefined;
     message.slashingTx = object.slashingTx ?? new Uint8Array(0);
     message.delegatorSlashingSig = object.delegatorSlashingSig ?? new Uint8Array(0);
     message.unbondingTime = object.unbondingTime ?? 0;
@@ -865,6 +907,151 @@ export const MsgCreateBTCDelegationResponse: MessageFns<MsgCreateBTCDelegationRe
   },
   fromPartial<I extends Exact<DeepPartial<MsgCreateBTCDelegationResponse>, I>>(_: I): MsgCreateBTCDelegationResponse {
     const message = createBaseMsgCreateBTCDelegationResponse();
+    return message;
+  },
+};
+
+function createBaseMsgAddBTCDelegationInclusionProof(): MsgAddBTCDelegationInclusionProof {
+  return { signer: "", stakingTxHash: "", stakingTxInclusionProof: undefined };
+}
+
+export const MsgAddBTCDelegationInclusionProof: MessageFns<MsgAddBTCDelegationInclusionProof> = {
+  encode(message: MsgAddBTCDelegationInclusionProof, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.signer !== "") {
+      writer.uint32(10).string(message.signer);
+    }
+    if (message.stakingTxHash !== "") {
+      writer.uint32(18).string(message.stakingTxHash);
+    }
+    if (message.stakingTxInclusionProof !== undefined) {
+      InclusionProof.encode(message.stakingTxInclusionProof, writer.uint32(26).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): MsgAddBTCDelegationInclusionProof {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgAddBTCDelegationInclusionProof();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.signer = reader.string();
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.stakingTxHash = reader.string();
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.stakingTxInclusionProof = InclusionProof.decode(reader, reader.uint32());
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgAddBTCDelegationInclusionProof {
+    return {
+      signer: isSet(object.signer) ? globalThis.String(object.signer) : "",
+      stakingTxHash: isSet(object.stakingTxHash) ? globalThis.String(object.stakingTxHash) : "",
+      stakingTxInclusionProof: isSet(object.stakingTxInclusionProof)
+        ? InclusionProof.fromJSON(object.stakingTxInclusionProof)
+        : undefined,
+    };
+  },
+
+  toJSON(message: MsgAddBTCDelegationInclusionProof): unknown {
+    const obj: any = {};
+    if (message.signer !== "") {
+      obj.signer = message.signer;
+    }
+    if (message.stakingTxHash !== "") {
+      obj.stakingTxHash = message.stakingTxHash;
+    }
+    if (message.stakingTxInclusionProof !== undefined) {
+      obj.stakingTxInclusionProof = InclusionProof.toJSON(message.stakingTxInclusionProof);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<MsgAddBTCDelegationInclusionProof>, I>>(
+    base?: I,
+  ): MsgAddBTCDelegationInclusionProof {
+    return MsgAddBTCDelegationInclusionProof.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<MsgAddBTCDelegationInclusionProof>, I>>(
+    object: I,
+  ): MsgAddBTCDelegationInclusionProof {
+    const message = createBaseMsgAddBTCDelegationInclusionProof();
+    message.signer = object.signer ?? "";
+    message.stakingTxHash = object.stakingTxHash ?? "";
+    message.stakingTxInclusionProof =
+      (object.stakingTxInclusionProof !== undefined && object.stakingTxInclusionProof !== null)
+        ? InclusionProof.fromPartial(object.stakingTxInclusionProof)
+        : undefined;
+    return message;
+  },
+};
+
+function createBaseMsgAddBTCDelegationInclusionProofResponse(): MsgAddBTCDelegationInclusionProofResponse {
+  return {};
+}
+
+export const MsgAddBTCDelegationInclusionProofResponse: MessageFns<MsgAddBTCDelegationInclusionProofResponse> = {
+  encode(_: MsgAddBTCDelegationInclusionProofResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): MsgAddBTCDelegationInclusionProofResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgAddBTCDelegationInclusionProofResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): MsgAddBTCDelegationInclusionProofResponse {
+    return {};
+  },
+
+  toJSON(_: MsgAddBTCDelegationInclusionProofResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<MsgAddBTCDelegationInclusionProofResponse>, I>>(
+    base?: I,
+  ): MsgAddBTCDelegationInclusionProofResponse {
+    return MsgAddBTCDelegationInclusionProofResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<MsgAddBTCDelegationInclusionProofResponse>, I>>(
+    _: I,
+  ): MsgAddBTCDelegationInclusionProofResponse {
+    const message = createBaseMsgAddBTCDelegationInclusionProofResponse();
     return message;
   },
 };
@@ -1058,7 +1245,12 @@ export const MsgAddCovenantSigsResponse: MessageFns<MsgAddCovenantSigsResponse> 
 };
 
 function createBaseMsgBTCUndelegate(): MsgBTCUndelegate {
-  return { signer: "", stakingTxHash: "", unbondingTxSig: new Uint8Array(0) };
+  return {
+    signer: "",
+    stakingTxHash: "",
+    stakeSpendingTx: new Uint8Array(0),
+    stakeSpendingTxInclusionProof: undefined,
+  };
 }
 
 export const MsgBTCUndelegate: MessageFns<MsgBTCUndelegate> = {
@@ -1069,8 +1261,11 @@ export const MsgBTCUndelegate: MessageFns<MsgBTCUndelegate> = {
     if (message.stakingTxHash !== "") {
       writer.uint32(18).string(message.stakingTxHash);
     }
-    if (message.unbondingTxSig.length !== 0) {
-      writer.uint32(26).bytes(message.unbondingTxSig);
+    if (message.stakeSpendingTx.length !== 0) {
+      writer.uint32(26).bytes(message.stakeSpendingTx);
+    }
+    if (message.stakeSpendingTxInclusionProof !== undefined) {
+      InclusionProof.encode(message.stakeSpendingTxInclusionProof, writer.uint32(34).fork()).join();
     }
     return writer;
   },
@@ -1101,7 +1296,14 @@ export const MsgBTCUndelegate: MessageFns<MsgBTCUndelegate> = {
             break;
           }
 
-          message.unbondingTxSig = reader.bytes();
+          message.stakeSpendingTx = reader.bytes();
+          continue;
+        case 4:
+          if (tag !== 34) {
+            break;
+          }
+
+          message.stakeSpendingTxInclusionProof = InclusionProof.decode(reader, reader.uint32());
           continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
@@ -1116,7 +1318,10 @@ export const MsgBTCUndelegate: MessageFns<MsgBTCUndelegate> = {
     return {
       signer: isSet(object.signer) ? globalThis.String(object.signer) : "",
       stakingTxHash: isSet(object.stakingTxHash) ? globalThis.String(object.stakingTxHash) : "",
-      unbondingTxSig: isSet(object.unbondingTxSig) ? bytesFromBase64(object.unbondingTxSig) : new Uint8Array(0),
+      stakeSpendingTx: isSet(object.stakeSpendingTx) ? bytesFromBase64(object.stakeSpendingTx) : new Uint8Array(0),
+      stakeSpendingTxInclusionProof: isSet(object.stakeSpendingTxInclusionProof)
+        ? InclusionProof.fromJSON(object.stakeSpendingTxInclusionProof)
+        : undefined,
     };
   },
 
@@ -1128,8 +1333,11 @@ export const MsgBTCUndelegate: MessageFns<MsgBTCUndelegate> = {
     if (message.stakingTxHash !== "") {
       obj.stakingTxHash = message.stakingTxHash;
     }
-    if (message.unbondingTxSig.length !== 0) {
-      obj.unbondingTxSig = base64FromBytes(message.unbondingTxSig);
+    if (message.stakeSpendingTx.length !== 0) {
+      obj.stakeSpendingTx = base64FromBytes(message.stakeSpendingTx);
+    }
+    if (message.stakeSpendingTxInclusionProof !== undefined) {
+      obj.stakeSpendingTxInclusionProof = InclusionProof.toJSON(message.stakeSpendingTxInclusionProof);
     }
     return obj;
   },
@@ -1141,7 +1349,11 @@ export const MsgBTCUndelegate: MessageFns<MsgBTCUndelegate> = {
     const message = createBaseMsgBTCUndelegate();
     message.signer = object.signer ?? "";
     message.stakingTxHash = object.stakingTxHash ?? "";
-    message.unbondingTxSig = object.unbondingTxSig ?? new Uint8Array(0);
+    message.stakeSpendingTx = object.stakeSpendingTx ?? new Uint8Array(0);
+    message.stakeSpendingTxInclusionProof =
+      (object.stakeSpendingTxInclusionProof !== undefined && object.stakeSpendingTxInclusionProof !== null)
+        ? InclusionProof.fromPartial(object.stakeSpendingTxInclusionProof)
+        : undefined;
     return message;
   },
 };
@@ -1455,6 +1667,10 @@ export interface Msg {
   EditFinalityProvider(request: MsgEditFinalityProvider): Promise<MsgEditFinalityProviderResponse>;
   /** CreateBTCDelegation creates a new BTC delegation */
   CreateBTCDelegation(request: MsgCreateBTCDelegation): Promise<MsgCreateBTCDelegationResponse>;
+  /** AddBTCDelegationInclusionProof adds inclusion proof of a given delegation on BTC chain */
+  AddBTCDelegationInclusionProof(
+    request: MsgAddBTCDelegationInclusionProof,
+  ): Promise<MsgAddBTCDelegationInclusionProofResponse>;
   /** AddCovenantSigs handles signatures from a covenant member */
   AddCovenantSigs(request: MsgAddCovenantSigs): Promise<MsgAddCovenantSigsResponse>;
   /** BTCUndelegate handles a signature on unbonding tx from its delegator */
@@ -1478,6 +1694,7 @@ export class MsgClientImpl implements Msg {
     this.CreateFinalityProvider = this.CreateFinalityProvider.bind(this);
     this.EditFinalityProvider = this.EditFinalityProvider.bind(this);
     this.CreateBTCDelegation = this.CreateBTCDelegation.bind(this);
+    this.AddBTCDelegationInclusionProof = this.AddBTCDelegationInclusionProof.bind(this);
     this.AddCovenantSigs = this.AddCovenantSigs.bind(this);
     this.BTCUndelegate = this.BTCUndelegate.bind(this);
     this.SelectiveSlashingEvidence = this.SelectiveSlashingEvidence.bind(this);
@@ -1499,6 +1716,14 @@ export class MsgClientImpl implements Msg {
     const data = MsgCreateBTCDelegation.encode(request).finish();
     const promise = this.rpc.request(this.service, "CreateBTCDelegation", data);
     return promise.then((data) => MsgCreateBTCDelegationResponse.decode(new BinaryReader(data)));
+  }
+
+  AddBTCDelegationInclusionProof(
+    request: MsgAddBTCDelegationInclusionProof,
+  ): Promise<MsgAddBTCDelegationInclusionProofResponse> {
+    const data = MsgAddBTCDelegationInclusionProof.encode(request).finish();
+    const promise = this.rpc.request(this.service, "AddBTCDelegationInclusionProof", data);
+    return promise.then((data) => MsgAddBTCDelegationInclusionProofResponse.decode(new BinaryReader(data)));
   }
 
   AddCovenantSigs(request: MsgAddCovenantSigs): Promise<MsgAddCovenantSigsResponse> {

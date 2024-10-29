@@ -6,7 +6,7 @@
 
 /* eslint-disable */
 import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
-import { Gauge, RewardGauge } from "./incentive";
+import { Coin } from "../../cosmos/base/v1beta1/coin";
 import { Params } from "./params";
 
 export const protobufPackage = "babylon.incentive";
@@ -27,18 +27,29 @@ export interface QueryRewardGaugesRequest {
   address: string;
 }
 
+/** RewardGaugesResponse is an object that stores rewards distributed to a BTC staking/timestamping stakeholder */
+export interface RewardGaugesResponse {
+  /**
+   * coins are coins that have been in the gauge
+   * Can have multiple coin denoms
+   */
+  coins: Coin[];
+  /** withdrawn_coins are coins that have been withdrawn by the stakeholder already */
+  withdrawnCoins: Coin[];
+}
+
 /** QueryRewardGaugesResponse is response type for the Query/RewardGauges RPC method. */
 export interface QueryRewardGaugesResponse {
   /**
    * reward_gauges is the map of reward gauges, where key is the stakeholder type
    * and value is the reward gauge holding all rewards for the stakeholder in that type
    */
-  rewardGauges: { [key: string]: RewardGauge };
+  rewardGauges: { [key: string]: RewardGaugesResponse };
 }
 
 export interface QueryRewardGaugesResponse_RewardGaugesEntry {
   key: string;
-  value: RewardGauge | undefined;
+  value: RewardGaugesResponse | undefined;
 }
 
 /** QueryBTCStakingGaugeRequest is request type for the Query/BTCStakingGauge RPC method. */
@@ -47,10 +58,26 @@ export interface QueryBTCStakingGaugeRequest {
   height: number;
 }
 
+export interface BTCStakingGaugeResponse {
+  /**
+   * coins that have been in the gauge
+   * can have multiple coin denoms
+   */
+  coins: Coin[];
+}
+
+export interface BTCTimestampingGaugeResponse {
+  /**
+   * coins that have been in the gauge
+   * can have multiple coin denoms
+   */
+  coins: Coin[];
+}
+
 /** QueryBTCStakingGaugeResponse is response type for the Query/BTCStakingGauge RPC method. */
 export interface QueryBTCStakingGaugeResponse {
   /** gauge is the BTC staking gauge at the queried height */
-  gauge: Gauge | undefined;
+  gauge: BTCStakingGaugeResponse | undefined;
 }
 
 /** QueryBTCTimestampingGaugeRequest is request type for the Query/BTCTimestampingGauge RPC method. */
@@ -62,7 +89,7 @@ export interface QueryBTCTimestampingGaugeRequest {
 /** QueryBTCTimestampingGaugeResponse is response type for the Query/BTCTimestampingGauge RPC method. */
 export interface QueryBTCTimestampingGaugeResponse {
   /** gauge is the BTC timestamping gauge at the queried epoch */
-  gauge: Gauge | undefined;
+  gauge: BTCTimestampingGaugeResponse | undefined;
 }
 
 function createBaseQueryParamsRequest(): QueryParamsRequest {
@@ -224,6 +251,82 @@ export const QueryRewardGaugesRequest: MessageFns<QueryRewardGaugesRequest> = {
   },
 };
 
+function createBaseRewardGaugesResponse(): RewardGaugesResponse {
+  return { coins: [], withdrawnCoins: [] };
+}
+
+export const RewardGaugesResponse: MessageFns<RewardGaugesResponse> = {
+  encode(message: RewardGaugesResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    for (const v of message.coins) {
+      Coin.encode(v!, writer.uint32(10).fork()).join();
+    }
+    for (const v of message.withdrawnCoins) {
+      Coin.encode(v!, writer.uint32(18).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RewardGaugesResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseRewardGaugesResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.coins.push(Coin.decode(reader, reader.uint32()));
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.withdrawnCoins.push(Coin.decode(reader, reader.uint32()));
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): RewardGaugesResponse {
+    return {
+      coins: globalThis.Array.isArray(object?.coins) ? object.coins.map((e: any) => Coin.fromJSON(e)) : [],
+      withdrawnCoins: globalThis.Array.isArray(object?.withdrawnCoins)
+        ? object.withdrawnCoins.map((e: any) => Coin.fromJSON(e))
+        : [],
+    };
+  },
+
+  toJSON(message: RewardGaugesResponse): unknown {
+    const obj: any = {};
+    if (message.coins?.length) {
+      obj.coins = message.coins.map((e) => Coin.toJSON(e));
+    }
+    if (message.withdrawnCoins?.length) {
+      obj.withdrawnCoins = message.withdrawnCoins.map((e) => Coin.toJSON(e));
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RewardGaugesResponse>, I>>(base?: I): RewardGaugesResponse {
+    return RewardGaugesResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RewardGaugesResponse>, I>>(object: I): RewardGaugesResponse {
+    const message = createBaseRewardGaugesResponse();
+    message.coins = object.coins?.map((e) => Coin.fromPartial(e)) || [];
+    message.withdrawnCoins = object.withdrawnCoins?.map((e) => Coin.fromPartial(e)) || [];
+    return message;
+  },
+};
+
 function createBaseQueryRewardGaugesResponse(): QueryRewardGaugesResponse {
   return { rewardGauges: {} };
 }
@@ -265,8 +368,8 @@ export const QueryRewardGaugesResponse: MessageFns<QueryRewardGaugesResponse> = 
   fromJSON(object: any): QueryRewardGaugesResponse {
     return {
       rewardGauges: isObject(object.rewardGauges)
-        ? Object.entries(object.rewardGauges).reduce<{ [key: string]: RewardGauge }>((acc, [key, value]) => {
-          acc[key] = RewardGauge.fromJSON(value);
+        ? Object.entries(object.rewardGauges).reduce<{ [key: string]: RewardGaugesResponse }>((acc, [key, value]) => {
+          acc[key] = RewardGaugesResponse.fromJSON(value);
           return acc;
         }, {})
         : {},
@@ -280,7 +383,7 @@ export const QueryRewardGaugesResponse: MessageFns<QueryRewardGaugesResponse> = 
       if (entries.length > 0) {
         obj.rewardGauges = {};
         entries.forEach(([k, v]) => {
-          obj.rewardGauges[k] = RewardGauge.toJSON(v);
+          obj.rewardGauges[k] = RewardGaugesResponse.toJSON(v);
         });
       }
     }
@@ -292,10 +395,10 @@ export const QueryRewardGaugesResponse: MessageFns<QueryRewardGaugesResponse> = 
   },
   fromPartial<I extends Exact<DeepPartial<QueryRewardGaugesResponse>, I>>(object: I): QueryRewardGaugesResponse {
     const message = createBaseQueryRewardGaugesResponse();
-    message.rewardGauges = Object.entries(object.rewardGauges ?? {}).reduce<{ [key: string]: RewardGauge }>(
+    message.rewardGauges = Object.entries(object.rewardGauges ?? {}).reduce<{ [key: string]: RewardGaugesResponse }>(
       (acc, [key, value]) => {
         if (value !== undefined) {
-          acc[key] = RewardGauge.fromPartial(value);
+          acc[key] = RewardGaugesResponse.fromPartial(value);
         }
         return acc;
       },
@@ -318,7 +421,7 @@ export const QueryRewardGaugesResponse_RewardGaugesEntry: MessageFns<QueryReward
       writer.uint32(10).string(message.key);
     }
     if (message.value !== undefined) {
-      RewardGauge.encode(message.value, writer.uint32(18).fork()).join();
+      RewardGaugesResponse.encode(message.value, writer.uint32(18).fork()).join();
     }
     return writer;
   },
@@ -342,7 +445,7 @@ export const QueryRewardGaugesResponse_RewardGaugesEntry: MessageFns<QueryReward
             break;
           }
 
-          message.value = RewardGauge.decode(reader, reader.uint32());
+          message.value = RewardGaugesResponse.decode(reader, reader.uint32());
           continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
@@ -356,7 +459,7 @@ export const QueryRewardGaugesResponse_RewardGaugesEntry: MessageFns<QueryReward
   fromJSON(object: any): QueryRewardGaugesResponse_RewardGaugesEntry {
     return {
       key: isSet(object.key) ? globalThis.String(object.key) : "",
-      value: isSet(object.value) ? RewardGauge.fromJSON(object.value) : undefined,
+      value: isSet(object.value) ? RewardGaugesResponse.fromJSON(object.value) : undefined,
     };
   },
 
@@ -366,7 +469,7 @@ export const QueryRewardGaugesResponse_RewardGaugesEntry: MessageFns<QueryReward
       obj.key = message.key;
     }
     if (message.value !== undefined) {
-      obj.value = RewardGauge.toJSON(message.value);
+      obj.value = RewardGaugesResponse.toJSON(message.value);
     }
     return obj;
   },
@@ -382,7 +485,7 @@ export const QueryRewardGaugesResponse_RewardGaugesEntry: MessageFns<QueryReward
     const message = createBaseQueryRewardGaugesResponse_RewardGaugesEntry();
     message.key = object.key ?? "";
     message.value = (object.value !== undefined && object.value !== null)
-      ? RewardGauge.fromPartial(object.value)
+      ? RewardGaugesResponse.fromPartial(object.value)
       : undefined;
     return message;
   },
@@ -445,6 +548,120 @@ export const QueryBTCStakingGaugeRequest: MessageFns<QueryBTCStakingGaugeRequest
   },
 };
 
+function createBaseBTCStakingGaugeResponse(): BTCStakingGaugeResponse {
+  return { coins: [] };
+}
+
+export const BTCStakingGaugeResponse: MessageFns<BTCStakingGaugeResponse> = {
+  encode(message: BTCStakingGaugeResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    for (const v of message.coins) {
+      Coin.encode(v!, writer.uint32(10).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): BTCStakingGaugeResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseBTCStakingGaugeResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.coins.push(Coin.decode(reader, reader.uint32()));
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): BTCStakingGaugeResponse {
+    return { coins: globalThis.Array.isArray(object?.coins) ? object.coins.map((e: any) => Coin.fromJSON(e)) : [] };
+  },
+
+  toJSON(message: BTCStakingGaugeResponse): unknown {
+    const obj: any = {};
+    if (message.coins?.length) {
+      obj.coins = message.coins.map((e) => Coin.toJSON(e));
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<BTCStakingGaugeResponse>, I>>(base?: I): BTCStakingGaugeResponse {
+    return BTCStakingGaugeResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<BTCStakingGaugeResponse>, I>>(object: I): BTCStakingGaugeResponse {
+    const message = createBaseBTCStakingGaugeResponse();
+    message.coins = object.coins?.map((e) => Coin.fromPartial(e)) || [];
+    return message;
+  },
+};
+
+function createBaseBTCTimestampingGaugeResponse(): BTCTimestampingGaugeResponse {
+  return { coins: [] };
+}
+
+export const BTCTimestampingGaugeResponse: MessageFns<BTCTimestampingGaugeResponse> = {
+  encode(message: BTCTimestampingGaugeResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    for (const v of message.coins) {
+      Coin.encode(v!, writer.uint32(10).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): BTCTimestampingGaugeResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseBTCTimestampingGaugeResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.coins.push(Coin.decode(reader, reader.uint32()));
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): BTCTimestampingGaugeResponse {
+    return { coins: globalThis.Array.isArray(object?.coins) ? object.coins.map((e: any) => Coin.fromJSON(e)) : [] };
+  },
+
+  toJSON(message: BTCTimestampingGaugeResponse): unknown {
+    const obj: any = {};
+    if (message.coins?.length) {
+      obj.coins = message.coins.map((e) => Coin.toJSON(e));
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<BTCTimestampingGaugeResponse>, I>>(base?: I): BTCTimestampingGaugeResponse {
+    return BTCTimestampingGaugeResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<BTCTimestampingGaugeResponse>, I>>(object: I): BTCTimestampingGaugeResponse {
+    const message = createBaseBTCTimestampingGaugeResponse();
+    message.coins = object.coins?.map((e) => Coin.fromPartial(e)) || [];
+    return message;
+  },
+};
+
 function createBaseQueryBTCStakingGaugeResponse(): QueryBTCStakingGaugeResponse {
   return { gauge: undefined };
 }
@@ -452,7 +669,7 @@ function createBaseQueryBTCStakingGaugeResponse(): QueryBTCStakingGaugeResponse 
 export const QueryBTCStakingGaugeResponse: MessageFns<QueryBTCStakingGaugeResponse> = {
   encode(message: QueryBTCStakingGaugeResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.gauge !== undefined) {
-      Gauge.encode(message.gauge, writer.uint32(10).fork()).join();
+      BTCStakingGaugeResponse.encode(message.gauge, writer.uint32(10).fork()).join();
     }
     return writer;
   },
@@ -469,7 +686,7 @@ export const QueryBTCStakingGaugeResponse: MessageFns<QueryBTCStakingGaugeRespon
             break;
           }
 
-          message.gauge = Gauge.decode(reader, reader.uint32());
+          message.gauge = BTCStakingGaugeResponse.decode(reader, reader.uint32());
           continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
@@ -481,13 +698,13 @@ export const QueryBTCStakingGaugeResponse: MessageFns<QueryBTCStakingGaugeRespon
   },
 
   fromJSON(object: any): QueryBTCStakingGaugeResponse {
-    return { gauge: isSet(object.gauge) ? Gauge.fromJSON(object.gauge) : undefined };
+    return { gauge: isSet(object.gauge) ? BTCStakingGaugeResponse.fromJSON(object.gauge) : undefined };
   },
 
   toJSON(message: QueryBTCStakingGaugeResponse): unknown {
     const obj: any = {};
     if (message.gauge !== undefined) {
-      obj.gauge = Gauge.toJSON(message.gauge);
+      obj.gauge = BTCStakingGaugeResponse.toJSON(message.gauge);
     }
     return obj;
   },
@@ -497,7 +714,9 @@ export const QueryBTCStakingGaugeResponse: MessageFns<QueryBTCStakingGaugeRespon
   },
   fromPartial<I extends Exact<DeepPartial<QueryBTCStakingGaugeResponse>, I>>(object: I): QueryBTCStakingGaugeResponse {
     const message = createBaseQueryBTCStakingGaugeResponse();
-    message.gauge = (object.gauge !== undefined && object.gauge !== null) ? Gauge.fromPartial(object.gauge) : undefined;
+    message.gauge = (object.gauge !== undefined && object.gauge !== null)
+      ? BTCStakingGaugeResponse.fromPartial(object.gauge)
+      : undefined;
     return message;
   },
 };
@@ -570,7 +789,7 @@ function createBaseQueryBTCTimestampingGaugeResponse(): QueryBTCTimestampingGaug
 export const QueryBTCTimestampingGaugeResponse: MessageFns<QueryBTCTimestampingGaugeResponse> = {
   encode(message: QueryBTCTimestampingGaugeResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.gauge !== undefined) {
-      Gauge.encode(message.gauge, writer.uint32(10).fork()).join();
+      BTCTimestampingGaugeResponse.encode(message.gauge, writer.uint32(10).fork()).join();
     }
     return writer;
   },
@@ -587,7 +806,7 @@ export const QueryBTCTimestampingGaugeResponse: MessageFns<QueryBTCTimestampingG
             break;
           }
 
-          message.gauge = Gauge.decode(reader, reader.uint32());
+          message.gauge = BTCTimestampingGaugeResponse.decode(reader, reader.uint32());
           continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
@@ -599,13 +818,13 @@ export const QueryBTCTimestampingGaugeResponse: MessageFns<QueryBTCTimestampingG
   },
 
   fromJSON(object: any): QueryBTCTimestampingGaugeResponse {
-    return { gauge: isSet(object.gauge) ? Gauge.fromJSON(object.gauge) : undefined };
+    return { gauge: isSet(object.gauge) ? BTCTimestampingGaugeResponse.fromJSON(object.gauge) : undefined };
   },
 
   toJSON(message: QueryBTCTimestampingGaugeResponse): unknown {
     const obj: any = {};
     if (message.gauge !== undefined) {
-      obj.gauge = Gauge.toJSON(message.gauge);
+      obj.gauge = BTCTimestampingGaugeResponse.toJSON(message.gauge);
     }
     return obj;
   },
@@ -619,7 +838,9 @@ export const QueryBTCTimestampingGaugeResponse: MessageFns<QueryBTCTimestampingG
     object: I,
   ): QueryBTCTimestampingGaugeResponse {
     const message = createBaseQueryBTCTimestampingGaugeResponse();
-    message.gauge = (object.gauge !== undefined && object.gauge !== null) ? Gauge.fromPartial(object.gauge) : undefined;
+    message.gauge = (object.gauge !== undefined && object.gauge !== null)
+      ? BTCTimestampingGaugeResponse.fromPartial(object.gauge)
+      : undefined;
     return message;
   },
 };

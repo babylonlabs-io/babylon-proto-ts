@@ -449,7 +449,7 @@ export const BlockHeightBbnToBtc: MessageFns<BlockHeightBbnToBtc> = {
       writer.uint32(8).uint64(message.blockHeightBbn);
     }
     if (message.blockHeightBtc !== 0) {
-      writer.uint32(16).uint64(message.blockHeightBtc);
+      writer.uint32(16).uint32(message.blockHeightBtc);
     }
     return writer;
   },
@@ -473,7 +473,7 @@ export const BlockHeightBbnToBtc: MessageFns<BlockHeightBbnToBtc> = {
             break;
           }
 
-          message.blockHeightBtc = longToNumber(reader.uint64());
+          message.blockHeightBtc = reader.uint32();
           continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
@@ -614,7 +614,7 @@ export const EventIndex: MessageFns<EventIndex> = {
       writer.uint32(8).uint64(message.idx);
     }
     if (message.blockHeightBtc !== 0) {
-      writer.uint32(16).uint64(message.blockHeightBtc);
+      writer.uint32(16).uint32(message.blockHeightBtc);
     }
     if (message.event !== undefined) {
       EventPowerDistUpdate.encode(message.event, writer.uint32(26).fork()).join();
@@ -641,7 +641,7 @@ export const EventIndex: MessageFns<EventIndex> = {
             break;
           }
 
-          message.blockHeightBtc = longToNumber(reader.uint64());
+          message.blockHeightBtc = reader.uint32();
           continue;
         case 3:
           if (tag !== 26) {

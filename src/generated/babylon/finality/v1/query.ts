@@ -7,7 +7,8 @@
 /* eslint-disable */
 import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
 import { PageRequest, PageResponse } from "../../../cosmos/base/query/v1beta1/pagination";
-import { Evidence, FinalityProviderSigningInfo, IndexedBlock } from "./finality";
+import { Timestamp } from "../../../google/protobuf/timestamp";
+import { IndexedBlock } from "./finality";
 import { Params } from "./params";
 
 export const protobufPackage = "babylon.finality.v1";
@@ -101,6 +102,8 @@ export interface PubRandCommitResponse {
   numPubRand: number;
   /** commitment is the value of the commitment */
   commitment: Uint8Array;
+  /** epoch_num defines the epoch number that the commit falls into */
+  epochNum: number;
 }
 
 /**
@@ -207,11 +210,40 @@ export interface QueryEvidenceRequest {
 }
 
 /**
+ * Evidence is the evidence that a finality provider has signed finality
+ * signatures with correct public randomness on two conflicting Babylon headers
+ */
+export interface EvidenceResponse {
+  /** fp_btc_pk_hex is the BTC PK of the finality provider that casts this vote */
+  fpBtcPkHex: string;
+  /** block_height is the height of the conflicting blocks */
+  blockHeight: number;
+  /** pub_rand is the public randomness the finality provider has committed to */
+  pubRand: Uint8Array;
+  /** canonical_app_hash is the AppHash of the canonical block */
+  canonicalAppHash: Uint8Array;
+  /** fork_app_hash is the AppHash of the fork block */
+  forkAppHash: Uint8Array;
+  /**
+   * canonical_finality_sig is the finality signature to the canonical block
+   * where finality signature is an EOTS signature, i.e.,
+   * the `s` in a Schnorr signature `(r, s)`
+   * `r` is the public randomness that is already committed by the finality provider
+   */
+  canonicalFinalitySig: Uint8Array;
+  /**
+   * fork_finality_sig is the finality signature to the fork block
+   * where finality signature is an EOTS signature
+   */
+  forkFinalitySig: Uint8Array;
+}
+
+/**
  * QueryEvidenceResponse is the response type for the
  * Query/Evidence RPC method.
  */
 export interface QueryEvidenceResponse {
-  evidence: Evidence | undefined;
+  evidence: EvidenceResponse | undefined;
 }
 
 /**
@@ -234,7 +266,7 @@ export interface QueryListEvidencesRequest {
  */
 export interface QueryListEvidencesResponse {
   /** blocks is the list of evidences */
-  evidences: Evidence[];
+  evidences: EvidenceResponse[];
   /** pagination defines the pagination in the response. */
   pagination: PageResponse | undefined;
 }
@@ -252,12 +284,29 @@ export interface QuerySigningInfoRequest {
 }
 
 /**
+ * SigningInfoResponse defines the API response containing a finality provider's signing info
+ * for monitoring their liveness activity.
+ */
+export interface SigningInfoResponse {
+  /** fp_btc_pk is the BTC PK of the finality provider that casts this vote */
+  fpBtcPkHex: string;
+  /** start_height is the block height at which finality provider become active */
+  startHeight: number;
+  /**
+   * missed_blocks_counter defines a counter to avoid unnecessary array reads.
+   * Note that `Sum(MissedBlocksBitArray)` always equals `MissedBlocksCounter`.
+   */
+  missedBlocksCounter: number;
+  /** Timestamp until which the validator is jailed due to liveness downtime. */
+  jailedUntil: Date | undefined;
+}
+
+/**
  * QuerySigningInfoResponse is the response type for the Query/SigningInfo RPC
  * method
  */
 export interface QuerySigningInfoResponse {
-  /** fp_signing_info is the signing info of requested finality provider BTC public key */
-  fpSigningInfo: FinalityProviderSigningInfo | undefined;
+  signingInfo: SigningInfoResponse | undefined;
 }
 
 /**
@@ -274,7 +323,7 @@ export interface QuerySigningInfosRequest {
  */
 export interface QuerySigningInfosResponse {
   /** info is the signing info of all finality providers with signing info */
-  fpSigningInfos: FinalityProviderSigningInfo[];
+  signingInfos: SigningInfoResponse[];
   pagination: PageResponse | undefined;
 }
 
@@ -647,7 +696,7 @@ export const QueryListPublicRandomnessResponse_PubRandMapEntry: MessageFns<
 };
 
 function createBasePubRandCommitResponse(): PubRandCommitResponse {
-  return { numPubRand: 0, commitment: new Uint8Array(0) };
+  return { numPubRand: 0, commitment: new Uint8Array(0), epochNum: 0 };
 }
 
 export const PubRandCommitResponse: MessageFns<PubRandCommitResponse> = {
@@ -657,6 +706,9 @@ export const PubRandCommitResponse: MessageFns<PubRandCommitResponse> = {
     }
     if (message.commitment.length !== 0) {
       writer.uint32(18).bytes(message.commitment);
+    }
+    if (message.epochNum !== 0) {
+      writer.uint32(24).uint64(message.epochNum);
     }
     return writer;
   },
@@ -682,6 +734,13 @@ export const PubRandCommitResponse: MessageFns<PubRandCommitResponse> = {
 
           message.commitment = reader.bytes();
           continue;
+        case 3:
+          if (tag !== 24) {
+            break;
+          }
+
+          message.epochNum = longToNumber(reader.uint64());
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -695,6 +754,7 @@ export const PubRandCommitResponse: MessageFns<PubRandCommitResponse> = {
     return {
       numPubRand: isSet(object.numPubRand) ? globalThis.Number(object.numPubRand) : 0,
       commitment: isSet(object.commitment) ? bytesFromBase64(object.commitment) : new Uint8Array(0),
+      epochNum: isSet(object.epochNum) ? globalThis.Number(object.epochNum) : 0,
     };
   },
 
@@ -706,6 +766,9 @@ export const PubRandCommitResponse: MessageFns<PubRandCommitResponse> = {
     if (message.commitment.length !== 0) {
       obj.commitment = base64FromBytes(message.commitment);
     }
+    if (message.epochNum !== 0) {
+      obj.epochNum = Math.round(message.epochNum);
+    }
     return obj;
   },
 
@@ -716,6 +779,7 @@ export const PubRandCommitResponse: MessageFns<PubRandCommitResponse> = {
     const message = createBasePubRandCommitResponse();
     message.numPubRand = object.numPubRand ?? 0;
     message.commitment = object.commitment ?? new Uint8Array(0);
+    message.epochNum = object.epochNum ?? 0;
     return message;
   },
 };
@@ -1427,6 +1491,165 @@ export const QueryEvidenceRequest: MessageFns<QueryEvidenceRequest> = {
   },
 };
 
+function createBaseEvidenceResponse(): EvidenceResponse {
+  return {
+    fpBtcPkHex: "",
+    blockHeight: 0,
+    pubRand: new Uint8Array(0),
+    canonicalAppHash: new Uint8Array(0),
+    forkAppHash: new Uint8Array(0),
+    canonicalFinalitySig: new Uint8Array(0),
+    forkFinalitySig: new Uint8Array(0),
+  };
+}
+
+export const EvidenceResponse: MessageFns<EvidenceResponse> = {
+  encode(message: EvidenceResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.fpBtcPkHex !== "") {
+      writer.uint32(10).string(message.fpBtcPkHex);
+    }
+    if (message.blockHeight !== 0) {
+      writer.uint32(16).uint64(message.blockHeight);
+    }
+    if (message.pubRand.length !== 0) {
+      writer.uint32(26).bytes(message.pubRand);
+    }
+    if (message.canonicalAppHash.length !== 0) {
+      writer.uint32(34).bytes(message.canonicalAppHash);
+    }
+    if (message.forkAppHash.length !== 0) {
+      writer.uint32(42).bytes(message.forkAppHash);
+    }
+    if (message.canonicalFinalitySig.length !== 0) {
+      writer.uint32(50).bytes(message.canonicalFinalitySig);
+    }
+    if (message.forkFinalitySig.length !== 0) {
+      writer.uint32(58).bytes(message.forkFinalitySig);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): EvidenceResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEvidenceResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.fpBtcPkHex = reader.string();
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.blockHeight = longToNumber(reader.uint64());
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.pubRand = reader.bytes();
+          continue;
+        case 4:
+          if (tag !== 34) {
+            break;
+          }
+
+          message.canonicalAppHash = reader.bytes();
+          continue;
+        case 5:
+          if (tag !== 42) {
+            break;
+          }
+
+          message.forkAppHash = reader.bytes();
+          continue;
+        case 6:
+          if (tag !== 50) {
+            break;
+          }
+
+          message.canonicalFinalitySig = reader.bytes();
+          continue;
+        case 7:
+          if (tag !== 58) {
+            break;
+          }
+
+          message.forkFinalitySig = reader.bytes();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): EvidenceResponse {
+    return {
+      fpBtcPkHex: isSet(object.fpBtcPkHex) ? globalThis.String(object.fpBtcPkHex) : "",
+      blockHeight: isSet(object.blockHeight) ? globalThis.Number(object.blockHeight) : 0,
+      pubRand: isSet(object.pubRand) ? bytesFromBase64(object.pubRand) : new Uint8Array(0),
+      canonicalAppHash: isSet(object.canonicalAppHash) ? bytesFromBase64(object.canonicalAppHash) : new Uint8Array(0),
+      forkAppHash: isSet(object.forkAppHash) ? bytesFromBase64(object.forkAppHash) : new Uint8Array(0),
+      canonicalFinalitySig: isSet(object.canonicalFinalitySig)
+        ? bytesFromBase64(object.canonicalFinalitySig)
+        : new Uint8Array(0),
+      forkFinalitySig: isSet(object.forkFinalitySig) ? bytesFromBase64(object.forkFinalitySig) : new Uint8Array(0),
+    };
+  },
+
+  toJSON(message: EvidenceResponse): unknown {
+    const obj: any = {};
+    if (message.fpBtcPkHex !== "") {
+      obj.fpBtcPkHex = message.fpBtcPkHex;
+    }
+    if (message.blockHeight !== 0) {
+      obj.blockHeight = Math.round(message.blockHeight);
+    }
+    if (message.pubRand.length !== 0) {
+      obj.pubRand = base64FromBytes(message.pubRand);
+    }
+    if (message.canonicalAppHash.length !== 0) {
+      obj.canonicalAppHash = base64FromBytes(message.canonicalAppHash);
+    }
+    if (message.forkAppHash.length !== 0) {
+      obj.forkAppHash = base64FromBytes(message.forkAppHash);
+    }
+    if (message.canonicalFinalitySig.length !== 0) {
+      obj.canonicalFinalitySig = base64FromBytes(message.canonicalFinalitySig);
+    }
+    if (message.forkFinalitySig.length !== 0) {
+      obj.forkFinalitySig = base64FromBytes(message.forkFinalitySig);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<EvidenceResponse>, I>>(base?: I): EvidenceResponse {
+    return EvidenceResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<EvidenceResponse>, I>>(object: I): EvidenceResponse {
+    const message = createBaseEvidenceResponse();
+    message.fpBtcPkHex = object.fpBtcPkHex ?? "";
+    message.blockHeight = object.blockHeight ?? 0;
+    message.pubRand = object.pubRand ?? new Uint8Array(0);
+    message.canonicalAppHash = object.canonicalAppHash ?? new Uint8Array(0);
+    message.forkAppHash = object.forkAppHash ?? new Uint8Array(0);
+    message.canonicalFinalitySig = object.canonicalFinalitySig ?? new Uint8Array(0);
+    message.forkFinalitySig = object.forkFinalitySig ?? new Uint8Array(0);
+    return message;
+  },
+};
+
 function createBaseQueryEvidenceResponse(): QueryEvidenceResponse {
   return { evidence: undefined };
 }
@@ -1434,7 +1657,7 @@ function createBaseQueryEvidenceResponse(): QueryEvidenceResponse {
 export const QueryEvidenceResponse: MessageFns<QueryEvidenceResponse> = {
   encode(message: QueryEvidenceResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.evidence !== undefined) {
-      Evidence.encode(message.evidence, writer.uint32(10).fork()).join();
+      EvidenceResponse.encode(message.evidence, writer.uint32(10).fork()).join();
     }
     return writer;
   },
@@ -1451,7 +1674,7 @@ export const QueryEvidenceResponse: MessageFns<QueryEvidenceResponse> = {
             break;
           }
 
-          message.evidence = Evidence.decode(reader, reader.uint32());
+          message.evidence = EvidenceResponse.decode(reader, reader.uint32());
           continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
@@ -1463,13 +1686,13 @@ export const QueryEvidenceResponse: MessageFns<QueryEvidenceResponse> = {
   },
 
   fromJSON(object: any): QueryEvidenceResponse {
-    return { evidence: isSet(object.evidence) ? Evidence.fromJSON(object.evidence) : undefined };
+    return { evidence: isSet(object.evidence) ? EvidenceResponse.fromJSON(object.evidence) : undefined };
   },
 
   toJSON(message: QueryEvidenceResponse): unknown {
     const obj: any = {};
     if (message.evidence !== undefined) {
-      obj.evidence = Evidence.toJSON(message.evidence);
+      obj.evidence = EvidenceResponse.toJSON(message.evidence);
     }
     return obj;
   },
@@ -1480,7 +1703,7 @@ export const QueryEvidenceResponse: MessageFns<QueryEvidenceResponse> = {
   fromPartial<I extends Exact<DeepPartial<QueryEvidenceResponse>, I>>(object: I): QueryEvidenceResponse {
     const message = createBaseQueryEvidenceResponse();
     message.evidence = (object.evidence !== undefined && object.evidence !== null)
-      ? Evidence.fromPartial(object.evidence)
+      ? EvidenceResponse.fromPartial(object.evidence)
       : undefined;
     return message;
   },
@@ -1569,7 +1792,7 @@ function createBaseQueryListEvidencesResponse(): QueryListEvidencesResponse {
 export const QueryListEvidencesResponse: MessageFns<QueryListEvidencesResponse> = {
   encode(message: QueryListEvidencesResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     for (const v of message.evidences) {
-      Evidence.encode(v!, writer.uint32(10).fork()).join();
+      EvidenceResponse.encode(v!, writer.uint32(10).fork()).join();
     }
     if (message.pagination !== undefined) {
       PageResponse.encode(message.pagination, writer.uint32(18).fork()).join();
@@ -1589,7 +1812,7 @@ export const QueryListEvidencesResponse: MessageFns<QueryListEvidencesResponse> 
             break;
           }
 
-          message.evidences.push(Evidence.decode(reader, reader.uint32()));
+          message.evidences.push(EvidenceResponse.decode(reader, reader.uint32()));
           continue;
         case 2:
           if (tag !== 18) {
@@ -1610,7 +1833,7 @@ export const QueryListEvidencesResponse: MessageFns<QueryListEvidencesResponse> 
   fromJSON(object: any): QueryListEvidencesResponse {
     return {
       evidences: globalThis.Array.isArray(object?.evidences)
-        ? object.evidences.map((e: any) => Evidence.fromJSON(e))
+        ? object.evidences.map((e: any) => EvidenceResponse.fromJSON(e))
         : [],
       pagination: isSet(object.pagination) ? PageResponse.fromJSON(object.pagination) : undefined,
     };
@@ -1619,7 +1842,7 @@ export const QueryListEvidencesResponse: MessageFns<QueryListEvidencesResponse> 
   toJSON(message: QueryListEvidencesResponse): unknown {
     const obj: any = {};
     if (message.evidences?.length) {
-      obj.evidences = message.evidences.map((e) => Evidence.toJSON(e));
+      obj.evidences = message.evidences.map((e) => EvidenceResponse.toJSON(e));
     }
     if (message.pagination !== undefined) {
       obj.pagination = PageResponse.toJSON(message.pagination);
@@ -1632,7 +1855,7 @@ export const QueryListEvidencesResponse: MessageFns<QueryListEvidencesResponse> 
   },
   fromPartial<I extends Exact<DeepPartial<QueryListEvidencesResponse>, I>>(object: I): QueryListEvidencesResponse {
     const message = createBaseQueryListEvidencesResponse();
-    message.evidences = object.evidences?.map((e) => Evidence.fromPartial(e)) || [];
+    message.evidences = object.evidences?.map((e) => EvidenceResponse.fromPartial(e)) || [];
     message.pagination = (object.pagination !== undefined && object.pagination !== null)
       ? PageResponse.fromPartial(object.pagination)
       : undefined;
@@ -1697,14 +1920,118 @@ export const QuerySigningInfoRequest: MessageFns<QuerySigningInfoRequest> = {
   },
 };
 
+function createBaseSigningInfoResponse(): SigningInfoResponse {
+  return { fpBtcPkHex: "", startHeight: 0, missedBlocksCounter: 0, jailedUntil: undefined };
+}
+
+export const SigningInfoResponse: MessageFns<SigningInfoResponse> = {
+  encode(message: SigningInfoResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.fpBtcPkHex !== "") {
+      writer.uint32(10).string(message.fpBtcPkHex);
+    }
+    if (message.startHeight !== 0) {
+      writer.uint32(16).int64(message.startHeight);
+    }
+    if (message.missedBlocksCounter !== 0) {
+      writer.uint32(24).int64(message.missedBlocksCounter);
+    }
+    if (message.jailedUntil !== undefined) {
+      Timestamp.encode(toTimestamp(message.jailedUntil), writer.uint32(34).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): SigningInfoResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseSigningInfoResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.fpBtcPkHex = reader.string();
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.startHeight = longToNumber(reader.int64());
+          continue;
+        case 3:
+          if (tag !== 24) {
+            break;
+          }
+
+          message.missedBlocksCounter = longToNumber(reader.int64());
+          continue;
+        case 4:
+          if (tag !== 34) {
+            break;
+          }
+
+          message.jailedUntil = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): SigningInfoResponse {
+    return {
+      fpBtcPkHex: isSet(object.fpBtcPkHex) ? globalThis.String(object.fpBtcPkHex) : "",
+      startHeight: isSet(object.startHeight) ? globalThis.Number(object.startHeight) : 0,
+      missedBlocksCounter: isSet(object.missedBlocksCounter) ? globalThis.Number(object.missedBlocksCounter) : 0,
+      jailedUntil: isSet(object.jailedUntil) ? fromJsonTimestamp(object.jailedUntil) : undefined,
+    };
+  },
+
+  toJSON(message: SigningInfoResponse): unknown {
+    const obj: any = {};
+    if (message.fpBtcPkHex !== "") {
+      obj.fpBtcPkHex = message.fpBtcPkHex;
+    }
+    if (message.startHeight !== 0) {
+      obj.startHeight = Math.round(message.startHeight);
+    }
+    if (message.missedBlocksCounter !== 0) {
+      obj.missedBlocksCounter = Math.round(message.missedBlocksCounter);
+    }
+    if (message.jailedUntil !== undefined) {
+      obj.jailedUntil = message.jailedUntil.toISOString();
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<SigningInfoResponse>, I>>(base?: I): SigningInfoResponse {
+    return SigningInfoResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<SigningInfoResponse>, I>>(object: I): SigningInfoResponse {
+    const message = createBaseSigningInfoResponse();
+    message.fpBtcPkHex = object.fpBtcPkHex ?? "";
+    message.startHeight = object.startHeight ?? 0;
+    message.missedBlocksCounter = object.missedBlocksCounter ?? 0;
+    message.jailedUntil = object.jailedUntil ?? undefined;
+    return message;
+  },
+};
+
 function createBaseQuerySigningInfoResponse(): QuerySigningInfoResponse {
-  return { fpSigningInfo: undefined };
+  return { signingInfo: undefined };
 }
 
 export const QuerySigningInfoResponse: MessageFns<QuerySigningInfoResponse> = {
   encode(message: QuerySigningInfoResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.fpSigningInfo !== undefined) {
-      FinalityProviderSigningInfo.encode(message.fpSigningInfo, writer.uint32(10).fork()).join();
+    if (message.signingInfo !== undefined) {
+      SigningInfoResponse.encode(message.signingInfo, writer.uint32(10).fork()).join();
     }
     return writer;
   },
@@ -1721,7 +2048,7 @@ export const QuerySigningInfoResponse: MessageFns<QuerySigningInfoResponse> = {
             break;
           }
 
-          message.fpSigningInfo = FinalityProviderSigningInfo.decode(reader, reader.uint32());
+          message.signingInfo = SigningInfoResponse.decode(reader, reader.uint32());
           continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
@@ -1733,17 +2060,13 @@ export const QuerySigningInfoResponse: MessageFns<QuerySigningInfoResponse> = {
   },
 
   fromJSON(object: any): QuerySigningInfoResponse {
-    return {
-      fpSigningInfo: isSet(object.fpSigningInfo)
-        ? FinalityProviderSigningInfo.fromJSON(object.fpSigningInfo)
-        : undefined,
-    };
+    return { signingInfo: isSet(object.signingInfo) ? SigningInfoResponse.fromJSON(object.signingInfo) : undefined };
   },
 
   toJSON(message: QuerySigningInfoResponse): unknown {
     const obj: any = {};
-    if (message.fpSigningInfo !== undefined) {
-      obj.fpSigningInfo = FinalityProviderSigningInfo.toJSON(message.fpSigningInfo);
+    if (message.signingInfo !== undefined) {
+      obj.signingInfo = SigningInfoResponse.toJSON(message.signingInfo);
     }
     return obj;
   },
@@ -1753,8 +2076,8 @@ export const QuerySigningInfoResponse: MessageFns<QuerySigningInfoResponse> = {
   },
   fromPartial<I extends Exact<DeepPartial<QuerySigningInfoResponse>, I>>(object: I): QuerySigningInfoResponse {
     const message = createBaseQuerySigningInfoResponse();
-    message.fpSigningInfo = (object.fpSigningInfo !== undefined && object.fpSigningInfo !== null)
-      ? FinalityProviderSigningInfo.fromPartial(object.fpSigningInfo)
+    message.signingInfo = (object.signingInfo !== undefined && object.signingInfo !== null)
+      ? SigningInfoResponse.fromPartial(object.signingInfo)
       : undefined;
     return message;
   },
@@ -1820,13 +2143,13 @@ export const QuerySigningInfosRequest: MessageFns<QuerySigningInfosRequest> = {
 };
 
 function createBaseQuerySigningInfosResponse(): QuerySigningInfosResponse {
-  return { fpSigningInfos: [], pagination: undefined };
+  return { signingInfos: [], pagination: undefined };
 }
 
 export const QuerySigningInfosResponse: MessageFns<QuerySigningInfosResponse> = {
   encode(message: QuerySigningInfosResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    for (const v of message.fpSigningInfos) {
-      FinalityProviderSigningInfo.encode(v!, writer.uint32(10).fork()).join();
+    for (const v of message.signingInfos) {
+      SigningInfoResponse.encode(v!, writer.uint32(10).fork()).join();
     }
     if (message.pagination !== undefined) {
       PageResponse.encode(message.pagination, writer.uint32(18).fork()).join();
@@ -1846,7 +2169,7 @@ export const QuerySigningInfosResponse: MessageFns<QuerySigningInfosResponse> = 
             break;
           }
 
-          message.fpSigningInfos.push(FinalityProviderSigningInfo.decode(reader, reader.uint32()));
+          message.signingInfos.push(SigningInfoResponse.decode(reader, reader.uint32()));
           continue;
         case 2:
           if (tag !== 18) {
@@ -1866,8 +2189,8 @@ export const QuerySigningInfosResponse: MessageFns<QuerySigningInfosResponse> = 
 
   fromJSON(object: any): QuerySigningInfosResponse {
     return {
-      fpSigningInfos: globalThis.Array.isArray(object?.fpSigningInfos)
-        ? object.fpSigningInfos.map((e: any) => FinalityProviderSigningInfo.fromJSON(e))
+      signingInfos: globalThis.Array.isArray(object?.signingInfos)
+        ? object.signingInfos.map((e: any) => SigningInfoResponse.fromJSON(e))
         : [],
       pagination: isSet(object.pagination) ? PageResponse.fromJSON(object.pagination) : undefined,
     };
@@ -1875,8 +2198,8 @@ export const QuerySigningInfosResponse: MessageFns<QuerySigningInfosResponse> = 
 
   toJSON(message: QuerySigningInfosResponse): unknown {
     const obj: any = {};
-    if (message.fpSigningInfos?.length) {
-      obj.fpSigningInfos = message.fpSigningInfos.map((e) => FinalityProviderSigningInfo.toJSON(e));
+    if (message.signingInfos?.length) {
+      obj.signingInfos = message.signingInfos.map((e) => SigningInfoResponse.toJSON(e));
     }
     if (message.pagination !== undefined) {
       obj.pagination = PageResponse.toJSON(message.pagination);
@@ -1889,7 +2212,7 @@ export const QuerySigningInfosResponse: MessageFns<QuerySigningInfosResponse> = 
   },
   fromPartial<I extends Exact<DeepPartial<QuerySigningInfosResponse>, I>>(object: I): QuerySigningInfosResponse {
     const message = createBaseQuerySigningInfosResponse();
-    message.fpSigningInfos = object.fpSigningInfos?.map((e) => FinalityProviderSigningInfo.fromPartial(e)) || [];
+    message.signingInfos = object.signingInfos?.map((e) => SigningInfoResponse.fromPartial(e)) || [];
     message.pagination = (object.pagination !== undefined && object.pagination !== null)
       ? PageResponse.fromPartial(object.pagination)
       : undefined;
@@ -1904,7 +2227,7 @@ export interface Query {
   /**
    * ListPublicRandomness is a range query for public randomness of a given finality provider
    * NOTE: Babylon only has the knowledge of public randomness that is already revealed by
-   * finality providers, i.e., the finality provider alreayd provides a finality signature
+   * finality providers, i.e., the finality provider already provides a finality signature
    * at the corresponding height
    * TODO: remove public randomness storage?
    */
@@ -2046,6 +2369,28 @@ export type DeepPartial<T> = T extends Builtin ? T
 type KeysOfUnion<T> = T extends T ? keyof T : never;
 export type Exact<P, I extends P> = P extends Builtin ? P
   : P & { [K in keyof P]: Exact<P[K], I[K]> } & { [K in Exclude<keyof I, KeysOfUnion<P>>]: never };
+
+function toTimestamp(date: Date): Timestamp {
+  const seconds = Math.trunc(date.getTime() / 1_000);
+  const nanos = (date.getTime() % 1_000) * 1_000_000;
+  return { seconds, nanos };
+}
+
+function fromTimestamp(t: Timestamp): Date {
+  let millis = (t.seconds || 0) * 1_000;
+  millis += (t.nanos || 0) / 1_000_000;
+  return new globalThis.Date(millis);
+}
+
+function fromJsonTimestamp(o: any): Date {
+  if (o instanceof globalThis.Date) {
+    return o;
+  } else if (typeof o === "string") {
+    return new globalThis.Date(o);
+  } else {
+    return fromTimestamp(Timestamp.fromJSON(o));
+  }
+}
 
 function longToNumber(int64: { toString(): string }): number {
   const num = globalThis.Number(int64.toString());

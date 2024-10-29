@@ -12,7 +12,7 @@ import { Params } from "./params";
 export const protobufPackage = "babylon.btccheckpoint.v1";
 
 /**
- * MsgInsertBTCSpvProof defines resquest to insert a new checkpoint into the
+ * MsgInsertBTCSpvProof defines request to insert a new checkpoint into the
  * store
  */
 export interface MsgInsertBTCSpvProof {
