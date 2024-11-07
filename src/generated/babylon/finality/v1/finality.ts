@@ -10,6 +10,73 @@ import { Timestamp } from "../../../google/protobuf/timestamp";
 
 export const protobufPackage = "babylon.finality.v1";
 
+/**
+ * VotingPowerDistCache is the cache for voting power distribution of finality providers
+ * and their BTC delegations at a height
+ */
+export interface VotingPowerDistCache {
+  /**
+   * total_sat is the total amount of bonded BTC stake (in Satoshi) of all the finality providers
+   * in the cache
+   */
+  totalBondedSat: number;
+  /** finality_providers is a list of finality providers' voting power information */
+  finalityProviders: FinalityProviderDistInfo[];
+  /**
+   * num_active_fps is the number of finality providers that have active BTC
+   * delegations as well as timestamped public randomness
+   */
+  numActiveFps: number;
+}
+
+/** FinalityProviderDistInfo is the reward distribution of a finality provider and its BTC delegations */
+export interface FinalityProviderDistInfo {
+  /**
+   * btc_pk is the Bitcoin secp256k1 PK of this finality provider
+   * the PK follows encoding in BIP-340 spec
+   */
+  btcPk: Uint8Array;
+  /** addr is the bytes of the address to receive commission from delegations. */
+  addr: Uint8Array;
+  /** commission defines the commission rate of finality provider */
+  commission: string;
+  /** total_bonded_sat is the total amount of bonded BTC stake (in Satoshi) of the finality provider */
+  totalBondedSat: number;
+  /** btc_dels is a list of BTC delegations' voting power information under this finality provider */
+  btcDels: BTCDelDistInfo[];
+  /**
+   * is_timestamped indicates whether the finality provider
+   * has timestamped public randomness committed
+   * if no, it should not be assigned voting power
+   */
+  isTimestamped: boolean;
+  /**
+   * is_jailed indicates whether the finality provider
+   * is jailed, if so, it should not be assigned voting power
+   */
+  isJailed: boolean;
+  /**
+   * is_slashed indicates whether the finality provider
+   * is slashed, if so, it should not be assigned voting power
+   */
+  isSlashed: boolean;
+}
+
+/** BTCDelDistInfo contains the information related to voting power distribution for a BTC delegation */
+export interface BTCDelDistInfo {
+  /**
+   * btc_pk is the Bitcoin secp256k1 PK of this BTC delegation
+   * the PK follows encoding in BIP-340 spec
+   */
+  btcPk: Uint8Array;
+  /** staker_addr is the address to receive rewards from BTC delegation. */
+  stakerAddr: string;
+  /** staking_tx_hash is the staking tx hash of the BTC delegation */
+  stakingTxHash: string;
+  /** total_sat is the amount of BTC stake (in Satoshi) of the BTC delegation */
+  totalSat: number;
+}
+
 /** IndexedBlock is the necessary metadata and finalization status of a block */
 export interface IndexedBlock {
   /** height is the height of the block */
@@ -88,6 +155,376 @@ export interface FinalityProviderSigningInfo {
   /** Timestamp until which the validator is jailed due to liveness downtime. */
   jailedUntil: Date | undefined;
 }
+
+function createBaseVotingPowerDistCache(): VotingPowerDistCache {
+  return { totalBondedSat: 0, finalityProviders: [], numActiveFps: 0 };
+}
+
+export const VotingPowerDistCache: MessageFns<VotingPowerDistCache> = {
+  encode(message: VotingPowerDistCache, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.totalBondedSat !== 0) {
+      writer.uint32(8).uint64(message.totalBondedSat);
+    }
+    for (const v of message.finalityProviders) {
+      FinalityProviderDistInfo.encode(v!, writer.uint32(18).fork()).join();
+    }
+    if (message.numActiveFps !== 0) {
+      writer.uint32(24).uint32(message.numActiveFps);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): VotingPowerDistCache {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseVotingPowerDistCache();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.totalBondedSat = longToNumber(reader.uint64());
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.finalityProviders.push(FinalityProviderDistInfo.decode(reader, reader.uint32()));
+          continue;
+        case 3:
+          if (tag !== 24) {
+            break;
+          }
+
+          message.numActiveFps = reader.uint32();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): VotingPowerDistCache {
+    return {
+      totalBondedSat: isSet(object.totalBondedSat) ? globalThis.Number(object.totalBondedSat) : 0,
+      finalityProviders: globalThis.Array.isArray(object?.finalityProviders)
+        ? object.finalityProviders.map((e: any) => FinalityProviderDistInfo.fromJSON(e))
+        : [],
+      numActiveFps: isSet(object.numActiveFps) ? globalThis.Number(object.numActiveFps) : 0,
+    };
+  },
+
+  toJSON(message: VotingPowerDistCache): unknown {
+    const obj: any = {};
+    if (message.totalBondedSat !== 0) {
+      obj.totalBondedSat = Math.round(message.totalBondedSat);
+    }
+    if (message.finalityProviders?.length) {
+      obj.finalityProviders = message.finalityProviders.map((e) => FinalityProviderDistInfo.toJSON(e));
+    }
+    if (message.numActiveFps !== 0) {
+      obj.numActiveFps = Math.round(message.numActiveFps);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<VotingPowerDistCache>, I>>(base?: I): VotingPowerDistCache {
+    return VotingPowerDistCache.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<VotingPowerDistCache>, I>>(object: I): VotingPowerDistCache {
+    const message = createBaseVotingPowerDistCache();
+    message.totalBondedSat = object.totalBondedSat ?? 0;
+    message.finalityProviders = object.finalityProviders?.map((e) => FinalityProviderDistInfo.fromPartial(e)) || [];
+    message.numActiveFps = object.numActiveFps ?? 0;
+    return message;
+  },
+};
+
+function createBaseFinalityProviderDistInfo(): FinalityProviderDistInfo {
+  return {
+    btcPk: new Uint8Array(0),
+    addr: new Uint8Array(0),
+    commission: "",
+    totalBondedSat: 0,
+    btcDels: [],
+    isTimestamped: false,
+    isJailed: false,
+    isSlashed: false,
+  };
+}
+
+export const FinalityProviderDistInfo: MessageFns<FinalityProviderDistInfo> = {
+  encode(message: FinalityProviderDistInfo, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.btcPk.length !== 0) {
+      writer.uint32(10).bytes(message.btcPk);
+    }
+    if (message.addr.length !== 0) {
+      writer.uint32(18).bytes(message.addr);
+    }
+    if (message.commission !== "") {
+      writer.uint32(26).string(message.commission);
+    }
+    if (message.totalBondedSat !== 0) {
+      writer.uint32(32).uint64(message.totalBondedSat);
+    }
+    for (const v of message.btcDels) {
+      BTCDelDistInfo.encode(v!, writer.uint32(42).fork()).join();
+    }
+    if (message.isTimestamped !== false) {
+      writer.uint32(48).bool(message.isTimestamped);
+    }
+    if (message.isJailed !== false) {
+      writer.uint32(56).bool(message.isJailed);
+    }
+    if (message.isSlashed !== false) {
+      writer.uint32(64).bool(message.isSlashed);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): FinalityProviderDistInfo {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseFinalityProviderDistInfo();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.btcPk = reader.bytes();
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.addr = reader.bytes();
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.commission = reader.string();
+          continue;
+        case 4:
+          if (tag !== 32) {
+            break;
+          }
+
+          message.totalBondedSat = longToNumber(reader.uint64());
+          continue;
+        case 5:
+          if (tag !== 42) {
+            break;
+          }
+
+          message.btcDels.push(BTCDelDistInfo.decode(reader, reader.uint32()));
+          continue;
+        case 6:
+          if (tag !== 48) {
+            break;
+          }
+
+          message.isTimestamped = reader.bool();
+          continue;
+        case 7:
+          if (tag !== 56) {
+            break;
+          }
+
+          message.isJailed = reader.bool();
+          continue;
+        case 8:
+          if (tag !== 64) {
+            break;
+          }
+
+          message.isSlashed = reader.bool();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): FinalityProviderDistInfo {
+    return {
+      btcPk: isSet(object.btcPk) ? bytesFromBase64(object.btcPk) : new Uint8Array(0),
+      addr: isSet(object.addr) ? bytesFromBase64(object.addr) : new Uint8Array(0),
+      commission: isSet(object.commission) ? globalThis.String(object.commission) : "",
+      totalBondedSat: isSet(object.totalBondedSat) ? globalThis.Number(object.totalBondedSat) : 0,
+      btcDels: globalThis.Array.isArray(object?.btcDels)
+        ? object.btcDels.map((e: any) => BTCDelDistInfo.fromJSON(e))
+        : [],
+      isTimestamped: isSet(object.isTimestamped) ? globalThis.Boolean(object.isTimestamped) : false,
+      isJailed: isSet(object.isJailed) ? globalThis.Boolean(object.isJailed) : false,
+      isSlashed: isSet(object.isSlashed) ? globalThis.Boolean(object.isSlashed) : false,
+    };
+  },
+
+  toJSON(message: FinalityProviderDistInfo): unknown {
+    const obj: any = {};
+    if (message.btcPk.length !== 0) {
+      obj.btcPk = base64FromBytes(message.btcPk);
+    }
+    if (message.addr.length !== 0) {
+      obj.addr = base64FromBytes(message.addr);
+    }
+    if (message.commission !== "") {
+      obj.commission = message.commission;
+    }
+    if (message.totalBondedSat !== 0) {
+      obj.totalBondedSat = Math.round(message.totalBondedSat);
+    }
+    if (message.btcDels?.length) {
+      obj.btcDels = message.btcDels.map((e) => BTCDelDistInfo.toJSON(e));
+    }
+    if (message.isTimestamped !== false) {
+      obj.isTimestamped = message.isTimestamped;
+    }
+    if (message.isJailed !== false) {
+      obj.isJailed = message.isJailed;
+    }
+    if (message.isSlashed !== false) {
+      obj.isSlashed = message.isSlashed;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<FinalityProviderDistInfo>, I>>(base?: I): FinalityProviderDistInfo {
+    return FinalityProviderDistInfo.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<FinalityProviderDistInfo>, I>>(object: I): FinalityProviderDistInfo {
+    const message = createBaseFinalityProviderDistInfo();
+    message.btcPk = object.btcPk ?? new Uint8Array(0);
+    message.addr = object.addr ?? new Uint8Array(0);
+    message.commission = object.commission ?? "";
+    message.totalBondedSat = object.totalBondedSat ?? 0;
+    message.btcDels = object.btcDels?.map((e) => BTCDelDistInfo.fromPartial(e)) || [];
+    message.isTimestamped = object.isTimestamped ?? false;
+    message.isJailed = object.isJailed ?? false;
+    message.isSlashed = object.isSlashed ?? false;
+    return message;
+  },
+};
+
+function createBaseBTCDelDistInfo(): BTCDelDistInfo {
+  return { btcPk: new Uint8Array(0), stakerAddr: "", stakingTxHash: "", totalSat: 0 };
+}
+
+export const BTCDelDistInfo: MessageFns<BTCDelDistInfo> = {
+  encode(message: BTCDelDistInfo, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.btcPk.length !== 0) {
+      writer.uint32(10).bytes(message.btcPk);
+    }
+    if (message.stakerAddr !== "") {
+      writer.uint32(18).string(message.stakerAddr);
+    }
+    if (message.stakingTxHash !== "") {
+      writer.uint32(26).string(message.stakingTxHash);
+    }
+    if (message.totalSat !== 0) {
+      writer.uint32(32).uint64(message.totalSat);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): BTCDelDistInfo {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseBTCDelDistInfo();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.btcPk = reader.bytes();
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.stakerAddr = reader.string();
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.stakingTxHash = reader.string();
+          continue;
+        case 4:
+          if (tag !== 32) {
+            break;
+          }
+
+          message.totalSat = longToNumber(reader.uint64());
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): BTCDelDistInfo {
+    return {
+      btcPk: isSet(object.btcPk) ? bytesFromBase64(object.btcPk) : new Uint8Array(0),
+      stakerAddr: isSet(object.stakerAddr) ? globalThis.String(object.stakerAddr) : "",
+      stakingTxHash: isSet(object.stakingTxHash) ? globalThis.String(object.stakingTxHash) : "",
+      totalSat: isSet(object.totalSat) ? globalThis.Number(object.totalSat) : 0,
+    };
+  },
+
+  toJSON(message: BTCDelDistInfo): unknown {
+    const obj: any = {};
+    if (message.btcPk.length !== 0) {
+      obj.btcPk = base64FromBytes(message.btcPk);
+    }
+    if (message.stakerAddr !== "") {
+      obj.stakerAddr = message.stakerAddr;
+    }
+    if (message.stakingTxHash !== "") {
+      obj.stakingTxHash = message.stakingTxHash;
+    }
+    if (message.totalSat !== 0) {
+      obj.totalSat = Math.round(message.totalSat);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<BTCDelDistInfo>, I>>(base?: I): BTCDelDistInfo {
+    return BTCDelDistInfo.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<BTCDelDistInfo>, I>>(object: I): BTCDelDistInfo {
+    const message = createBaseBTCDelDistInfo();
+    message.btcPk = object.btcPk ?? new Uint8Array(0);
+    message.stakerAddr = object.stakerAddr ?? "";
+    message.stakingTxHash = object.stakingTxHash ?? "";
+    message.totalSat = object.totalSat ?? 0;
+    return message;
+  },
+};
 
 function createBaseIndexedBlock(): IndexedBlock {
   return { height: 0, appHash: new Uint8Array(0), finalized: false };

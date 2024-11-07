@@ -1,6 +1,6 @@
 {
   "name": "@babylonlabs-io/babylon-proto-ts",
-  "version": "0.0.3-canary.1",
+  "version": "0.0.3-canary.2",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -8,7 +8,8 @@
     "prepublishOnly": "npm run build"
   },
   "files": [
-    "src/generated/**/*"
+    "dist",
+    "dist/**/*.d.ts"
   ],
   "keywords": [],
   "author": "",

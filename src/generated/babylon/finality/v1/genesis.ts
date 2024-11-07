@@ -6,7 +6,7 @@
 
 /* eslint-disable */
 import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
-import { Evidence, FinalityProviderSigningInfo, IndexedBlock, PubRandCommit } from "./finality";
+import { Evidence, FinalityProviderSigningInfo, IndexedBlock, PubRandCommit, VotingPowerDistCache } from "./finality";
 import { Params } from "./params";
 
 export const protobufPackage = "babylon.finality.v1";
@@ -37,6 +37,10 @@ export interface GenesisState {
    * missed blocks.
    */
   missedBlocks: FinalityProviderMissedBlocks[];
+  /** voting_powers the voting power of every finality provider at every block height. */
+  votingPowers: VotingPowerFP[];
+  /** vp_dst_cache is the table of all providers voting power with the total at one specific block. */
+  vpDstCache: VotingPowerDistCacheBlkHeight[];
 }
 
 /**
@@ -100,6 +104,27 @@ export interface MissedBlock {
   missed: boolean;
 }
 
+/**
+ * VotingPowerFP contains the information about the voting power
+ * of an finality provider in a specific block height.
+ */
+export interface VotingPowerFP {
+  /** block_height is the height of the block the voting power was stored. */
+  blockHeight: number;
+  /** fp_btc_pk the finality provider btc public key. */
+  fpBtcPk: Uint8Array;
+  /** voting_power is the power of the finality provider at this specific block height. */
+  votingPower: number;
+}
+
+/** VotingPowerDistCacheBlkHeight the total voting power of the finality providers at one specific block height */
+export interface VotingPowerDistCacheBlkHeight {
+  /** block_height is the height of the block the voting power distribution cached was stored. */
+  blockHeight: number;
+  /** vp_distribution the finality providers distribution cache at that height. */
+  vpDistribution: VotingPowerDistCache | undefined;
+}
+
 function createBaseGenesisState(): GenesisState {
   return {
     params: undefined,
@@ -110,6 +135,8 @@ function createBaseGenesisState(): GenesisState {
     pubRandCommit: [],
     signingInfos: [],
     missedBlocks: [],
+    votingPowers: [],
+    vpDstCache: [],
   };
 }
 
@@ -138,6 +165,12 @@ export const GenesisState: MessageFns<GenesisState> = {
     }
     for (const v of message.missedBlocks) {
       FinalityProviderMissedBlocks.encode(v!, writer.uint32(66).fork()).join();
+    }
+    for (const v of message.votingPowers) {
+      VotingPowerFP.encode(v!, writer.uint32(74).fork()).join();
+    }
+    for (const v of message.vpDstCache) {
+      VotingPowerDistCacheBlkHeight.encode(v!, writer.uint32(82).fork()).join();
     }
     return writer;
   },
@@ -205,6 +238,20 @@ export const GenesisState: MessageFns<GenesisState> = {
 
           message.missedBlocks.push(FinalityProviderMissedBlocks.decode(reader, reader.uint32()));
           continue;
+        case 9:
+          if (tag !== 74) {
+            break;
+          }
+
+          message.votingPowers.push(VotingPowerFP.decode(reader, reader.uint32()));
+          continue;
+        case 10:
+          if (tag !== 82) {
+            break;
+          }
+
+          message.vpDstCache.push(VotingPowerDistCacheBlkHeight.decode(reader, reader.uint32()));
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -236,6 +283,12 @@ export const GenesisState: MessageFns<GenesisState> = {
       missedBlocks: globalThis.Array.isArray(object?.missedBlocks)
         ? object.missedBlocks.map((e: any) => FinalityProviderMissedBlocks.fromJSON(e))
         : [],
+      votingPowers: globalThis.Array.isArray(object?.votingPowers)
+        ? object.votingPowers.map((e: any) => VotingPowerFP.fromJSON(e))
+        : [],
+      vpDstCache: globalThis.Array.isArray(object?.vpDstCache)
+        ? object.vpDstCache.map((e: any) => VotingPowerDistCacheBlkHeight.fromJSON(e))
+        : [],
     };
   },
 
@@ -265,6 +318,12 @@ export const GenesisState: MessageFns<GenesisState> = {
     if (message.missedBlocks?.length) {
       obj.missedBlocks = message.missedBlocks.map((e) => FinalityProviderMissedBlocks.toJSON(e));
     }
+    if (message.votingPowers?.length) {
+      obj.votingPowers = message.votingPowers.map((e) => VotingPowerFP.toJSON(e));
+    }
+    if (message.vpDstCache?.length) {
+      obj.vpDstCache = message.vpDstCache.map((e) => VotingPowerDistCacheBlkHeight.toJSON(e));
+    }
     return obj;
   },
 
@@ -283,6 +342,8 @@ export const GenesisState: MessageFns<GenesisState> = {
     message.pubRandCommit = object.pubRandCommit?.map((e) => PubRandCommitWithPK.fromPartial(e)) || [];
     message.signingInfos = object.signingInfos?.map((e) => SigningInfo.fromPartial(e)) || [];
     message.missedBlocks = object.missedBlocks?.map((e) => FinalityProviderMissedBlocks.fromPartial(e)) || [];
+    message.votingPowers = object.votingPowers?.map((e) => VotingPowerFP.fromPartial(e)) || [];
+    message.vpDstCache = object.vpDstCache?.map((e) => VotingPowerDistCacheBlkHeight.fromPartial(e)) || [];
     return message;
   },
 };
@@ -765,6 +826,173 @@ export const MissedBlock: MessageFns<MissedBlock> = {
     const message = createBaseMissedBlock();
     message.index = object.index ?? 0;
     message.missed = object.missed ?? false;
+    return message;
+  },
+};
+
+function createBaseVotingPowerFP(): VotingPowerFP {
+  return { blockHeight: 0, fpBtcPk: new Uint8Array(0), votingPower: 0 };
+}
+
+export const VotingPowerFP: MessageFns<VotingPowerFP> = {
+  encode(message: VotingPowerFP, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.blockHeight !== 0) {
+      writer.uint32(8).uint64(message.blockHeight);
+    }
+    if (message.fpBtcPk.length !== 0) {
+      writer.uint32(18).bytes(message.fpBtcPk);
+    }
+    if (message.votingPower !== 0) {
+      writer.uint32(24).uint64(message.votingPower);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): VotingPowerFP {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseVotingPowerFP();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.blockHeight = longToNumber(reader.uint64());
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.fpBtcPk = reader.bytes();
+          continue;
+        case 3:
+          if (tag !== 24) {
+            break;
+          }
+
+          message.votingPower = longToNumber(reader.uint64());
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): VotingPowerFP {
+    return {
+      blockHeight: isSet(object.blockHeight) ? globalThis.Number(object.blockHeight) : 0,
+      fpBtcPk: isSet(object.fpBtcPk) ? bytesFromBase64(object.fpBtcPk) : new Uint8Array(0),
+      votingPower: isSet(object.votingPower) ? globalThis.Number(object.votingPower) : 0,
+    };
+  },
+
+  toJSON(message: VotingPowerFP): unknown {
+    const obj: any = {};
+    if (message.blockHeight !== 0) {
+      obj.blockHeight = Math.round(message.blockHeight);
+    }
+    if (message.fpBtcPk.length !== 0) {
+      obj.fpBtcPk = base64FromBytes(message.fpBtcPk);
+    }
+    if (message.votingPower !== 0) {
+      obj.votingPower = Math.round(message.votingPower);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<VotingPowerFP>, I>>(base?: I): VotingPowerFP {
+    return VotingPowerFP.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<VotingPowerFP>, I>>(object: I): VotingPowerFP {
+    const message = createBaseVotingPowerFP();
+    message.blockHeight = object.blockHeight ?? 0;
+    message.fpBtcPk = object.fpBtcPk ?? new Uint8Array(0);
+    message.votingPower = object.votingPower ?? 0;
+    return message;
+  },
+};
+
+function createBaseVotingPowerDistCacheBlkHeight(): VotingPowerDistCacheBlkHeight {
+  return { blockHeight: 0, vpDistribution: undefined };
+}
+
+export const VotingPowerDistCacheBlkHeight: MessageFns<VotingPowerDistCacheBlkHeight> = {
+  encode(message: VotingPowerDistCacheBlkHeight, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.blockHeight !== 0) {
+      writer.uint32(8).uint64(message.blockHeight);
+    }
+    if (message.vpDistribution !== undefined) {
+      VotingPowerDistCache.encode(message.vpDistribution, writer.uint32(18).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): VotingPowerDistCacheBlkHeight {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseVotingPowerDistCacheBlkHeight();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.blockHeight = longToNumber(reader.uint64());
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.vpDistribution = VotingPowerDistCache.decode(reader, reader.uint32());
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): VotingPowerDistCacheBlkHeight {
+    return {
+      blockHeight: isSet(object.blockHeight) ? globalThis.Number(object.blockHeight) : 0,
+      vpDistribution: isSet(object.vpDistribution) ? VotingPowerDistCache.fromJSON(object.vpDistribution) : undefined,
+    };
+  },
+
+  toJSON(message: VotingPowerDistCacheBlkHeight): unknown {
+    const obj: any = {};
+    if (message.blockHeight !== 0) {
+      obj.blockHeight = Math.round(message.blockHeight);
+    }
+    if (message.vpDistribution !== undefined) {
+      obj.vpDistribution = VotingPowerDistCache.toJSON(message.vpDistribution);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<VotingPowerDistCacheBlkHeight>, I>>(base?: I): VotingPowerDistCacheBlkHeight {
+    return VotingPowerDistCacheBlkHeight.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<VotingPowerDistCacheBlkHeight>, I>>(
+    object: I,
+  ): VotingPowerDistCacheBlkHeight {
+    const message = createBaseVotingPowerDistCacheBlkHeight();
+    message.blockHeight = object.blockHeight ?? 0;
+    message.vpDistribution = (object.vpDistribution !== undefined && object.vpDistribution !== null)
+      ? VotingPowerDistCache.fromPartial(object.vpDistribution)
+      : undefined;
     return message;
   },
 };
