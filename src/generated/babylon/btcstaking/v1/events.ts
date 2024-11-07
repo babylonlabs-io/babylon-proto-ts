@@ -220,6 +220,10 @@ export interface EventBTCDelegationCreated {
    * It uniquely identifies a BTC delegation
    */
   stakingTxHash: string;
+  /** staking_output_pk_script is the hex encoded PK script of the staking output */
+  stakingOutputPkScript: string;
+  /** staking_output_index is the index of the staking output in the staking tx */
+  stakingOutputIndex: string;
   /** version of the params used to validate the delegation */
   paramsVersion: string;
   /**
@@ -1212,6 +1216,8 @@ export const EventFinalityProviderStatusChange: MessageFns<EventFinalityProvider
 function createBaseEventBTCDelegationCreated(): EventBTCDelegationCreated {
   return {
     stakingTxHash: "",
+    stakingOutputPkScript: "",
+    stakingOutputIndex: "",
     paramsVersion: "",
     finalityProviderBtcPksHex: [],
     stakerBtcPkHex: "",
@@ -1228,29 +1234,35 @@ export const EventBTCDelegationCreated: MessageFns<EventBTCDelegationCreated> = 
     if (message.stakingTxHash !== "") {
       writer.uint32(10).string(message.stakingTxHash);
     }
+    if (message.stakingOutputPkScript !== "") {
+      writer.uint32(18).string(message.stakingOutputPkScript);
+    }
+    if (message.stakingOutputIndex !== "") {
+      writer.uint32(26).string(message.stakingOutputIndex);
+    }
     if (message.paramsVersion !== "") {
-      writer.uint32(18).string(message.paramsVersion);
+      writer.uint32(34).string(message.paramsVersion);
     }
     for (const v of message.finalityProviderBtcPksHex) {
-      writer.uint32(26).string(v!);
+      writer.uint32(42).string(v!);
     }
     if (message.stakerBtcPkHex !== "") {
-      writer.uint32(34).string(message.stakerBtcPkHex);
+      writer.uint32(50).string(message.stakerBtcPkHex);
     }
     if (message.stakingTime !== "") {
-      writer.uint32(42).string(message.stakingTime);
+      writer.uint32(58).string(message.stakingTime);
     }
     if (message.stakingAmount !== "") {
-      writer.uint32(50).string(message.stakingAmount);
+      writer.uint32(66).string(message.stakingAmount);
     }
     if (message.unbondingTime !== "") {
-      writer.uint32(58).string(message.unbondingTime);
+      writer.uint32(74).string(message.unbondingTime);
     }
     if (message.unbondingTx !== "") {
-      writer.uint32(66).string(message.unbondingTx);
+      writer.uint32(82).string(message.unbondingTx);
     }
     if (message.newState !== "") {
-      writer.uint32(74).string(message.newState);
+      writer.uint32(90).string(message.newState);
     }
     return writer;
   },
@@ -1274,52 +1286,66 @@ export const EventBTCDelegationCreated: MessageFns<EventBTCDelegationCreated> = 
             break;
           }
 
-          message.paramsVersion = reader.string();
+          message.stakingOutputPkScript = reader.string();
           continue;
         case 3:
           if (tag !== 26) {
             break;
           }
 
-          message.finalityProviderBtcPksHex.push(reader.string());
+          message.stakingOutputIndex = reader.string();
           continue;
         case 4:
           if (tag !== 34) {
             break;
           }
 
-          message.stakerBtcPkHex = reader.string();
+          message.paramsVersion = reader.string();
           continue;
         case 5:
           if (tag !== 42) {
             break;
           }
 
-          message.stakingTime = reader.string();
+          message.finalityProviderBtcPksHex.push(reader.string());
           continue;
         case 6:
           if (tag !== 50) {
             break;
           }
 
-          message.stakingAmount = reader.string();
+          message.stakerBtcPkHex = reader.string();
           continue;
         case 7:
           if (tag !== 58) {
             break;
           }
 
-          message.unbondingTime = reader.string();
+          message.stakingTime = reader.string();
           continue;
         case 8:
           if (tag !== 66) {
             break;
           }
 
-          message.unbondingTx = reader.string();
+          message.stakingAmount = reader.string();
           continue;
         case 9:
           if (tag !== 74) {
+            break;
+          }
+
+          message.unbondingTime = reader.string();
+          continue;
+        case 10:
+          if (tag !== 82) {
+            break;
+          }
+
+          message.unbondingTx = reader.string();
+          continue;
+        case 11:
+          if (tag !== 90) {
             break;
           }
 
@@ -1337,6 +1363,8 @@ export const EventBTCDelegationCreated: MessageFns<EventBTCDelegationCreated> = 
   fromJSON(object: any): EventBTCDelegationCreated {
     return {
       stakingTxHash: isSet(object.stakingTxHash) ? globalThis.String(object.stakingTxHash) : "",
+      stakingOutputPkScript: isSet(object.stakingOutputPkScript) ? globalThis.String(object.stakingOutputPkScript) : "",
+      stakingOutputIndex: isSet(object.stakingOutputIndex) ? globalThis.String(object.stakingOutputIndex) : "",
       paramsVersion: isSet(object.paramsVersion) ? globalThis.String(object.paramsVersion) : "",
       finalityProviderBtcPksHex: globalThis.Array.isArray(object?.finalityProviderBtcPksHex)
         ? object.finalityProviderBtcPksHex.map((e: any) => globalThis.String(e))
@@ -1354,6 +1382,12 @@ export const EventBTCDelegationCreated: MessageFns<EventBTCDelegationCreated> = 
     const obj: any = {};
     if (message.stakingTxHash !== "") {
       obj.stakingTxHash = message.stakingTxHash;
+    }
+    if (message.stakingOutputPkScript !== "") {
+      obj.stakingOutputPkScript = message.stakingOutputPkScript;
+    }
+    if (message.stakingOutputIndex !== "") {
+      obj.stakingOutputIndex = message.stakingOutputIndex;
     }
     if (message.paramsVersion !== "") {
       obj.paramsVersion = message.paramsVersion;
@@ -1388,6 +1422,8 @@ export const EventBTCDelegationCreated: MessageFns<EventBTCDelegationCreated> = 
   fromPartial<I extends Exact<DeepPartial<EventBTCDelegationCreated>, I>>(object: I): EventBTCDelegationCreated {
     const message = createBaseEventBTCDelegationCreated();
     message.stakingTxHash = object.stakingTxHash ?? "";
+    message.stakingOutputPkScript = object.stakingOutputPkScript ?? "";
+    message.stakingOutputIndex = object.stakingOutputIndex ?? "";
     message.paramsVersion = object.paramsVersion ?? "";
     message.finalityProviderBtcPksHex = object.finalityProviderBtcPksHex?.map((e) => e) || [];
     message.stakerBtcPkHex = object.stakerBtcPkHex ?? "";

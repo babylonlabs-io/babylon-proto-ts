@@ -12,6 +12,8 @@ export const protobufPackage = "babylon.finality.v1";
 
 /** Params defines the parameters for the module. */
 export interface Params {
+  /** max_active_finality_providers is the maximum number of active finality providers in the BTC staking protocol */
+  maxActiveFinalityProviders: number;
   /** signed_blocks_window defines the size of the sliding window for tracking finality provider liveness */
   signedBlocksWindow: number;
   /**
@@ -43,6 +45,7 @@ export interface Params {
 
 function createBaseParams(): Params {
   return {
+    maxActiveFinalityProviders: 0,
     signedBlocksWindow: 0,
     finalitySigTimeout: 0,
     minSignedPerWindow: new Uint8Array(0),
@@ -54,23 +57,26 @@ function createBaseParams(): Params {
 
 export const Params: MessageFns<Params> = {
   encode(message: Params, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.maxActiveFinalityProviders !== 0) {
+      writer.uint32(8).uint32(message.maxActiveFinalityProviders);
+    }
     if (message.signedBlocksWindow !== 0) {
-      writer.uint32(8).int64(message.signedBlocksWindow);
+      writer.uint32(16).int64(message.signedBlocksWindow);
     }
     if (message.finalitySigTimeout !== 0) {
-      writer.uint32(16).int64(message.finalitySigTimeout);
+      writer.uint32(24).int64(message.finalitySigTimeout);
     }
     if (message.minSignedPerWindow.length !== 0) {
-      writer.uint32(26).bytes(message.minSignedPerWindow);
+      writer.uint32(34).bytes(message.minSignedPerWindow);
     }
     if (message.minPubRand !== 0) {
-      writer.uint32(32).uint64(message.minPubRand);
+      writer.uint32(40).uint64(message.minPubRand);
     }
     if (message.jailDuration !== undefined) {
-      Duration.encode(message.jailDuration, writer.uint32(42).fork()).join();
+      Duration.encode(message.jailDuration, writer.uint32(50).fork()).join();
     }
     if (message.finalityActivationHeight !== 0) {
-      writer.uint32(48).uint64(message.finalityActivationHeight);
+      writer.uint32(56).uint64(message.finalityActivationHeight);
     }
     return writer;
   },
@@ -87,38 +93,45 @@ export const Params: MessageFns<Params> = {
             break;
           }
 
-          message.signedBlocksWindow = longToNumber(reader.int64());
+          message.maxActiveFinalityProviders = reader.uint32();
           continue;
         case 2:
           if (tag !== 16) {
             break;
           }
 
-          message.finalitySigTimeout = longToNumber(reader.int64());
+          message.signedBlocksWindow = longToNumber(reader.int64());
           continue;
         case 3:
-          if (tag !== 26) {
+          if (tag !== 24) {
+            break;
+          }
+
+          message.finalitySigTimeout = longToNumber(reader.int64());
+          continue;
+        case 4:
+          if (tag !== 34) {
             break;
           }
 
           message.minSignedPerWindow = reader.bytes();
           continue;
-        case 4:
-          if (tag !== 32) {
+        case 5:
+          if (tag !== 40) {
             break;
           }
 
           message.minPubRand = longToNumber(reader.uint64());
           continue;
-        case 5:
-          if (tag !== 42) {
+        case 6:
+          if (tag !== 50) {
             break;
           }
 
           message.jailDuration = Duration.decode(reader, reader.uint32());
           continue;
-        case 6:
-          if (tag !== 48) {
+        case 7:
+          if (tag !== 56) {
             break;
           }
 
@@ -135,6 +148,9 @@ export const Params: MessageFns<Params> = {
 
   fromJSON(object: any): Params {
     return {
+      maxActiveFinalityProviders: isSet(object.maxActiveFinalityProviders)
+        ? globalThis.Number(object.maxActiveFinalityProviders)
+        : 0,
       signedBlocksWindow: isSet(object.signedBlocksWindow) ? globalThis.Number(object.signedBlocksWindow) : 0,
       finalitySigTimeout: isSet(object.finalitySigTimeout) ? globalThis.Number(object.finalitySigTimeout) : 0,
       minSignedPerWindow: isSet(object.minSignedPerWindow)
@@ -150,6 +166,9 @@ export const Params: MessageFns<Params> = {
 
   toJSON(message: Params): unknown {
     const obj: any = {};
+    if (message.maxActiveFinalityProviders !== 0) {
+      obj.maxActiveFinalityProviders = Math.round(message.maxActiveFinalityProviders);
+    }
     if (message.signedBlocksWindow !== 0) {
       obj.signedBlocksWindow = Math.round(message.signedBlocksWindow);
     }
@@ -176,6 +195,7 @@ export const Params: MessageFns<Params> = {
   },
   fromPartial<I extends Exact<DeepPartial<Params>, I>>(object: I): Params {
     const message = createBaseParams();
+    message.maxActiveFinalityProviders = object.maxActiveFinalityProviders ?? 0;
     message.signedBlocksWindow = object.signedBlocksWindow ?? 0;
     message.finalitySigTimeout = object.finalitySigTimeout ?? 0;
     message.minSignedPerWindow = object.minSignedPerWindow ?? new Uint8Array(0);

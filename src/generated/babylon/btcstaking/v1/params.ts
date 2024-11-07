@@ -62,8 +62,6 @@ export interface Params {
    * is 2 decimal places
    */
   minCommissionRate: string;
-  /** max_active_finality_providers is the maximum number of active finality providers in the BTC staking protocol */
-  maxActiveFinalityProviders: number;
   /** base gas fee for delegation creation */
   delegationCreationBaseGasFee: number;
 }
@@ -93,7 +91,6 @@ function createBaseParams(): Params {
     minUnbondingTimeBlocks: 0,
     unbondingFeeSat: 0,
     minCommissionRate: "",
-    maxActiveFinalityProviders: 0,
     delegationCreationBaseGasFee: 0,
   };
 }
@@ -136,11 +133,8 @@ export const Params: MessageFns<Params> = {
     if (message.minCommissionRate !== "") {
       writer.uint32(98).string(message.minCommissionRate);
     }
-    if (message.maxActiveFinalityProviders !== 0) {
-      writer.uint32(104).uint32(message.maxActiveFinalityProviders);
-    }
     if (message.delegationCreationBaseGasFee !== 0) {
-      writer.uint32(112).uint64(message.delegationCreationBaseGasFee);
+      writer.uint32(104).uint64(message.delegationCreationBaseGasFee);
     }
     return writer;
   },
@@ -241,13 +235,6 @@ export const Params: MessageFns<Params> = {
             break;
           }
 
-          message.maxActiveFinalityProviders = reader.uint32();
-          continue;
-        case 14:
-          if (tag !== 112) {
-            break;
-          }
-
           message.delegationCreationBaseGasFee = longToNumber(reader.uint64());
           continue;
       }
@@ -277,9 +264,6 @@ export const Params: MessageFns<Params> = {
         : 0,
       unbondingFeeSat: isSet(object.unbondingFeeSat) ? globalThis.Number(object.unbondingFeeSat) : 0,
       minCommissionRate: isSet(object.minCommissionRate) ? globalThis.String(object.minCommissionRate) : "",
-      maxActiveFinalityProviders: isSet(object.maxActiveFinalityProviders)
-        ? globalThis.Number(object.maxActiveFinalityProviders)
-        : 0,
       delegationCreationBaseGasFee: isSet(object.delegationCreationBaseGasFee)
         ? globalThis.Number(object.delegationCreationBaseGasFee)
         : 0,
@@ -324,9 +308,6 @@ export const Params: MessageFns<Params> = {
     if (message.minCommissionRate !== "") {
       obj.minCommissionRate = message.minCommissionRate;
     }
-    if (message.maxActiveFinalityProviders !== 0) {
-      obj.maxActiveFinalityProviders = Math.round(message.maxActiveFinalityProviders);
-    }
     if (message.delegationCreationBaseGasFee !== 0) {
       obj.delegationCreationBaseGasFee = Math.round(message.delegationCreationBaseGasFee);
     }
@@ -350,7 +331,6 @@ export const Params: MessageFns<Params> = {
     message.minUnbondingTimeBlocks = object.minUnbondingTimeBlocks ?? 0;
     message.unbondingFeeSat = object.unbondingFeeSat ?? 0;
     message.minCommissionRate = object.minCommissionRate ?? "";
-    message.maxActiveFinalityProviders = object.maxActiveFinalityProviders ?? 0;
     message.delegationCreationBaseGasFee = object.delegationCreationBaseGasFee ?? 0;
     return message;
   },
