@@ -15,6 +15,116 @@
 npm i @babylonlabs-io/babylon-proto-ts
 ```
 
+## 🚀 Quick Start
+
+This library provides a high-level `BabylonClient` for interacting with the Babylon Bitcoin Staking Protocol, eliminating the need to work with protobuf files directly.
+
+### Basic Usage
+
+```typescript
+import { BabylonClient } from "@babylonlabs-io/babylon-proto-ts";
+
+// Connect to Babylon network
+const client = await BabylonClient.connect({
+  rpc: "https://babylon-rpc.example.com"
+});
+
+// Query rewards for an address
+const rewards = await client.getRewards("bbn1...");
+
+// Query balance
+const balance = await client.getBalance("bbn1...", "ubbn");
+
+// Get Bitcoin tip
+const btcTip = await client.getBTCTip();
+```
+
+### Wallet Integration
+
+For applications that need to create and sign transactions, use the provided registry and amino types:
+
+```typescript
+import { 
+  createRegistry, 
+  createAminoTypes, 
+  BabylonClient 
+} from "@babylonlabs-io/babylon-proto-ts";
+import { SigningStargateClient } from "@cosmjs/stargate";
+
+// Create signing client with Babylon support
+const client = await SigningStargateClient.connectWithSigner(
+  rpc,
+  offlineSigner as OfflineSigner,
+  {
+    registry: createRegistry(),
+    aminoTypes: createAminoTypes(),
+  },
+);
+
+// Create withdraw reward message
+const babylonClient = await BabylonClient.connect({ rpc });
+const withdrawMsg = babylonClient.createWithdrawRewardMsg("bbn1...");
+
+// Sign and broadcast
+const result = await client.signAndBroadcast(
+  "bbn1...",
+  [withdrawMsg],
+  "auto"
+);
+```
+
+## 📚 API Reference
+
+### BabylonClient
+
+#### `BabylonClient.connect(config: BabylonClientConfig)`
+
+Creates a new BabylonClient instance.
+
+- **Parameters:**
+  - `config.rpc`: RPC endpoint URL for the Babylon network
+
+#### `getRewards(address: string): Promise<number>`
+
+Retrieves the total rewards for a given address.
+
+- **Parameters:**
+  - `address`: The Babylon address to query
+- **Returns:** Total rewards amount (number)
+
+#### `getBalance(address: string, denom?: string): Promise<number>`
+
+Gets the balance of a specific token for an address.
+
+- **Parameters:**
+  - `address`: The Babylon address to query
+  - `denom`: Token denomination (defaults to "ubbn")
+- **Returns:** Balance amount (number)
+
+#### `getBTCTip(): Promise<BTCHeaderInfoResponse>`
+
+Retrieves the current Bitcoin blockchain tip information.
+
+- **Returns:** Bitcoin header information
+
+#### `createWithdrawRewardMsg(address: string)`
+
+Creates a message for withdrawing rewards.
+
+- **Parameters:**
+  - `address`: The address to withdraw rewards for
+- **Returns:** Message object ready for signing
+
+### Utility Functions
+
+#### `createRegistry(): Registry`
+
+Creates a CosmJS registry with all Babylon message types registered.
+
+#### `createAminoTypes(): AminoTypes`
+
+Creates amino types for Babylon messages, required for wallet compatibility.
+
 ## 📝 Commit Format & Automated Releases
 
 This project uses [**Conventional Commits**](https://www.conventionalcommits.org/en/v1.0.0/)
