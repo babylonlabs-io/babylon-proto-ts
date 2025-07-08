@@ -1,6 +1,6 @@
 import * as incentivetx from "../generated/babylon/incentive/tx";
 import { BTC_STAKER } from "../utils/constants";
-import { REGISTRY_TYPE_URLS } from "../utils/registry";
+import { REGISTRY_TYPE_URLS } from "../utils/constants";
 
 export const createMessages = () => ({
   createWithdrawRewardMsg(address: string) {

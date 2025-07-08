@@ -130,7 +130,7 @@ export class BabylonClient {
     try {
       const req = btclightclientquery.QueryTipRequest.fromPartial({});
       const { header } = await this.getClient("btcLight").Tip(req);
-      return header?.height ?? 0;
+      return Number(header?.height ?? 0);
     } catch (error) {
       throw new Error(`Failed to fetch BTC tip height`, {
         cause: error,
