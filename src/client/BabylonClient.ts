@@ -22,11 +22,15 @@ export class BabylonClient {
   private btclightclientQueryClient: btclightclientquery.QueryClientImpl
   protected config: BabylonClientConfig
 
-  constructor(queryClient: QueryClient, config: BabylonClientConfig) {
-    this.queryClient = queryClient
+  constructor(config: BabylonClientConfig) {
     this.config = config
+  }
 
-    const rpc = createProtobufRpcClient(queryClient)
+  private async init(): Promise<void> {
+    const tmClient = await Tendermint34Client.connect(this.config.rpc)
+    this.queryClient = QueryClient.withExtensions(tmClient, setupBankExtension)
+
+    const rpc = createProtobufRpcClient(this.queryClient)
     this.incentiveQueryClient = new incentivequery.QueryClientImpl(rpc)
     this.btclightclientQueryClient = new btclightclientquery.QueryClientImpl(
       rpc
@@ -34,10 +38,9 @@ export class BabylonClient {
   }
 
   static async connect(config: BabylonClientConfig): Promise<BabylonClient> {
-    const tmClient = await Tendermint34Client.connect(config.rpc)
-    const queryClient = QueryClient.withExtensions(tmClient, setupBankExtension)
-
-    return new BabylonClient(queryClient, config)
+    const client = new BabylonClient(config)
+    await client.init()
+    return client
   }
 
   // ============================
