@@ -9,11 +9,11 @@
     "declarationMap": true, // Generate .d.ts.map files for debugging
     "esModuleInterop": true, // Enable compatibility with CommonJS modules
     "module": "commonjs", // CommonJS module system
-    "target": "es2017", // Set target to ES2017 to support Object.entries
+    "target": "es2022", // Set target to ES2022 to support Error cause option
     "lib": [
-      "es2017",
+      "es2022",
       "dom"
-    ] // Include ES2017 libraries for compatibility
+    ] // Include ES2022 libraries for Error cause support
   },
   "include": [
     "src/**/*.ts",

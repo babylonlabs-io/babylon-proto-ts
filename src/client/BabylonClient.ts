@@ -10,7 +10,11 @@ import { Tendermint34Client } from "@cosmjs/tendermint-rpc"
 import * as btclightclientquery from "../generated/babylon/btclightclient/v1/query"
 import * as incentivequery from "../generated/babylon/incentive/query"
 import * as incentivetx from "../generated/babylon/incentive/tx"
-import { REWARD_GAUGE_KEY_BTC_DELEGATION, BTC_STAKER, REGISTRY_TYPE_URLS } from "../utils/constants"
+import {
+  REWARD_GAUGE_KEY_BTC_DELEGATION,
+  BTC_STAKER,
+  REGISTRY_TYPE_URLS
+} from "../utils/constants"
 
 export interface BabylonClientConfig {
   rpc: string
@@ -110,7 +114,9 @@ export class BabylonClient {
       ) {
         return 0
       }
-      throw new Error(`Failed to fetch rewards for ${address}: ${error}`)
+      throw new Error(`Failed to fetch rewards for ${address}`, {
+        cause: error
+      })
     }
   }
 
@@ -125,7 +131,9 @@ export class BabylonClient {
       const balance = await this.bankExtension.bank.balance(address, denom)
       return Number(balance?.amount ?? 0)
     } catch (error) {
-      throw new Error(`Failed to fetch balance for ${address}: ${error}`)
+      throw new Error(`Failed to fetch balance for ${address}`, {
+        cause: error
+      })
     }
   }
 
@@ -139,7 +147,9 @@ export class BabylonClient {
       const { header } = await this.btclightclientQueryClient.Tip(req)
       return Number(header?.height ?? 0)
     } catch (error) {
-      throw new Error(`Failed to fetch BTC tip height: ${error}`)
+      throw new Error(`Failed to fetch BTC tip height`, {
+        cause: error
+      })
     }
   }
 }
