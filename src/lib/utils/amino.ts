@@ -1,23 +1,23 @@
-import { AminoTypes } from "@cosmjs/stargate"
+import { AminoTypes } from "@cosmjs/stargate";
 
-import * as btcstakingtx from "../generated/babylon/btcstaking/v1/tx"
-import * as incentivetx from "../generated/babylon/incentive/tx"
-import { REGISTRY_TYPE_URLS } from "./constants"
+import * as btcstakingtx from "../../generated/babylon/btcstaking/v1/tx";
+import * as incentivetx from "../../generated/babylon/incentive/tx";
+import { REGISTRY_TYPE_URLS } from "../../constants";
 
 const msgCreateBTCDelegationConverter = {
   [REGISTRY_TYPE_URLS.MsgCreateBTCDelegation]: {
     aminoType: REGISTRY_TYPE_URLS.MsgCreateBTCDelegation,
     toAmino: (msg: btcstakingtx.MsgCreateBTCDelegation) => {
-      const pop = msg.pop
+      const pop = msg.pop;
       if (!pop) {
-        throw new Error("Proof of possession is undefined")
+        throw new Error("Proof of possession is undefined");
       }
       return {
         staker_addr: msg.stakerAddr,
         btc_pk: Buffer.from(msg.btcPk).toString("base64"),
         pop: {
           btc_sig_type: pop.btcSigType,
-          btc_sig: Buffer.from(pop.btcSig).toString("base64")
+          btc_sig: Buffer.from(pop.btcSig).toString("base64"),
         },
         fp_btc_pk_list: msg.fpBtcPkList.map((pk) =>
           Buffer.from(pk).toString("base64")
@@ -45,24 +45,24 @@ const msgCreateBTCDelegationConverter = {
                   index: msg.stakingTxInclusionProof.key.index,
                   hash: Buffer.from(
                     msg.stakingTxInclusionProof.key.hash
-                  ).toString("base64")
+                  ).toString("base64"),
                 },
                 proof: Buffer.from(msg.stakingTxInclusionProof.proof).toString(
                   "base64"
-                )
-              }
+                ),
+              },
             }
-          : {})
-      }
+          : {}),
+      };
     },
     fromAmino: (json: any): btcstakingtx.MsgCreateBTCDelegation => {
-      const hasInclusionProof = json.staking_tx_inclusion_proof?.key.hash
+      const hasInclusionProof = json.staking_tx_inclusion_proof?.key.hash;
       return {
         stakerAddr: json.staker_addr,
         btcPk: Buffer.from(json.btc_pk, "base64"),
         pop: {
           btcSigType: json.pop.btc_sig_type,
-          btcSig: Buffer.from(json.pop.btc_sig, "base64")
+          btcSig: Buffer.from(json.pop.btc_sig, "base64"),
         },
         fpBtcPkList: json.fp_btc_pk_list.map((pk: string) =>
           Buffer.from(pk, "base64")
@@ -77,12 +77,12 @@ const msgCreateBTCDelegationConverter = {
                 hash: Buffer.from(
                   json.staking_tx_inclusion_proof.key.hash,
                   "base64"
-                )
+                ),
               },
               proof: Buffer.from(
                 json.staking_tx_inclusion_proof.proof,
                 "base64"
-              )
+              ),
             }
           : undefined,
         slashingTx: Buffer.from(json.slashing_tx, "base64"),
@@ -97,11 +97,11 @@ const msgCreateBTCDelegationConverter = {
         delegatorUnbondingSlashingSig: Buffer.from(
           json.delegator_unbonding_slashing_sig,
           "base64"
-        )
-      } as any
-    }
-  }
-}
+        ),
+      } as any;
+    },
+  },
+};
 
 const msgWithdrawRewardConverter = {
   [REGISTRY_TYPE_URLS.MsgWithdrawReward]: {
@@ -109,25 +109,25 @@ const msgWithdrawRewardConverter = {
     toAmino: (msg: incentivetx.MsgWithdrawReward) => {
       return {
         type: msg.type,
-        address: msg.address
-      }
+        address: msg.address,
+      };
     },
     fromAmino: (json: any): incentivetx.MsgWithdrawReward => {
       return {
         type: json.type,
-        address: json.address
-      }
-    }
-  }
-}
+        address: json.address,
+      };
+    },
+  },
+};
 
 export const aminoConverters = {
   ...msgCreateBTCDelegationConverter,
-  ...msgWithdrawRewardConverter
-}
+  ...msgWithdrawRewardConverter,
+};
 
 export const createAminoTypes = (): AminoTypes => {
   return new AminoTypes({
-    ...aminoConverters
-  })
-}
+    ...aminoConverters,
+  });
+};

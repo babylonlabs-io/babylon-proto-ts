@@ -9,6 +9,4 @@ export * as incentivequery from "./generated/babylon/incentive/query";
 export * as btclightclient from "./generated/babylon/btclightclient/v1/btclightclient";
 export * as btclightclientquery from "./generated/babylon/btclightclient/v1/query";
 
-export { createAminoTypes } from "./utils/amino";
-export { createRegistry } from "./utils/registry";
 export * from "./lib/sdk";

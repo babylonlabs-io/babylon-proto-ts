@@ -1,5 +1,6 @@
 import { createBabylonClient } from "./client";
-import { createMessages } from "./messages";
+import messages from "./messages";
+import utils from "./utils";
 
 interface BabylonConfig {
   rpcUrl: string;
@@ -11,6 +12,7 @@ export const createBabylonSDK = ({ rpcUrl }: BabylonConfig) => {
   return {
     connect: () => client.connect(),
     client,
-    messages: createMessages(),
+    messages,
+    utils,
   };
 };

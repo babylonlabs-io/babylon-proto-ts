@@ -9,7 +9,7 @@ import { Tendermint34Client } from "@cosmjs/tendermint-rpc";
 
 import * as btclightclientquery from "../generated/babylon/btclightclient/v1/query";
 import * as incentivequery from "../generated/babylon/incentive/query";
-import { REWARD_GAUGE_KEY_BTC_DELEGATION } from "../utils/constants";
+import { REWARD_GAUGE_KEY_BTC_DELEGATION } from "../constants";
 
 interface Clients {
   incentive: incentivequery.QueryClientImpl;

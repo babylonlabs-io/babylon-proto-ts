@@ -1,8 +1,8 @@
 import * as incentivetx from "../generated/babylon/incentive/tx";
-import { BTC_STAKER } from "../utils/constants";
-import { REGISTRY_TYPE_URLS } from "../utils/constants";
+import { BTC_STAKER } from "../constants";
+import { REGISTRY_TYPE_URLS } from "../constants";
 
-export const createMessages = () => ({
+export default {
   createWithdrawRewardMsg(address: string) {
     const withdrawRewardMsg = incentivetx.MsgWithdrawReward.fromPartial({
       type: BTC_STAKER,
@@ -14,4 +14,4 @@ export const createMessages = () => ({
       value: withdrawRewardMsg,
     };
   },
-});
+};
