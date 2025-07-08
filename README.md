@@ -22,21 +22,21 @@ This library provides a high-level `BabylonClient` for interacting with the Baby
 ### Basic Usage
 
 ```typescript
-import { BabylonClient } from "@babylonlabs-io/babylon-proto-ts";
+import { BabylonClient } from "@babylonlabs-io/babylon-proto-ts"
 
 // Connect to Babylon network
 const client = await BabylonClient.connect({
   rpc: "https://babylon-rpc.example.com"
-});
+})
 
 // Query rewards for an address
-const rewards = await client.getRewards("bbn1...");
+const rewards = await client.getRewards("bbn1...")
 
 // Query balance
-const balance = await client.getBalance("bbn1...", "ubbn");
+const balance = await client.getBalance("bbn1...", "ubbn")
 
-// Get Bitcoin tip
-const btcTip = await client.getBTCTip();
+// Get Bitcoin tip height
+const btcTipHeight = await client.getBTCTipHeight()
 ```
 
 ### Wallet Integration
@@ -44,12 +44,12 @@ const btcTip = await client.getBTCTip();
 For applications that need to create and sign transactions, use the provided registry and amino types:
 
 ```typescript
-import { 
-  createRegistry, 
-  createAminoTypes, 
-  BabylonClient 
-} from "@babylonlabs-io/babylon-proto-ts";
-import { SigningStargateClient } from "@cosmjs/stargate";
+import {
+  createRegistry,
+  createAminoTypes,
+  BabylonClient
+} from "@babylonlabs-io/babylon-proto-ts"
+import { SigningStargateClient } from "@cosmjs/stargate"
 
 // Create signing client with Babylon support
 const client = await SigningStargateClient.connectWithSigner(
@@ -57,20 +57,16 @@ const client = await SigningStargateClient.connectWithSigner(
   offlineSigner as OfflineSigner,
   {
     registry: createRegistry(),
-    aminoTypes: createAminoTypes(),
-  },
-);
+    aminoTypes: createAminoTypes()
+  }
+)
 
 // Create withdraw reward message
-const babylonClient = await BabylonClient.connect({ rpc });
-const withdrawMsg = babylonClient.createWithdrawRewardMsg("bbn1...");
+const babylonClient = await BabylonClient.connect({ rpc })
+const withdrawMsg = babylonClient.createWithdrawRewardMsg("bbn1...")
 
 // Sign and broadcast
-const result = await client.signAndBroadcast(
-  "bbn1...",
-  [withdrawMsg],
-  "auto"
-);
+const result = await client.signAndBroadcast("bbn1...", [withdrawMsg], "auto")
 ```
 
 ## 📚 API Reference
@@ -101,11 +97,11 @@ Gets the balance of a specific token for an address.
   - `denom`: Token denomination (defaults to "ubbn")
 - **Returns:** Balance amount (number)
 
-#### `getBTCTip(): Promise<BTCHeaderInfoResponse>`
+#### `getBTCTipHeight(): Promise<number>`
 
-Retrieves the current Bitcoin blockchain tip information.
+Retrieves the current Bitcoin blockchain tip height.
 
-- **Returns:** Bitcoin header information
+- **Returns:** Bitcoin tip height (number)
 
 #### `createWithdrawRewardMsg(address: string)`
 

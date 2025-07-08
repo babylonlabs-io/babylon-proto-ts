@@ -131,16 +131,16 @@ export class BabylonClient {
   }
 
   /**
-   * Gets the tip of the Bitcoin blockchain.
-   * @returns {Promise<BTCHeaderInfoResponse>} - The tip of the Bitcoin blockchain.
+   * Gets the height of the Bitcoin blockchain tip.
+   * @returns {Promise<number>} - The height of the Bitcoin blockchain tip.
    */
-  async getBTCTip(): Promise<btclightclientquery.BTCHeaderInfoResponse> {
+  async getBTCTipHeight(): Promise<number> {
     try {
       const req = btclightclientquery.QueryTipRequest.fromPartial({})
       const { header } = await this.btclightclientQueryClient.Tip(req)
-      return header
+      return Number(header?.height ?? 0)
     } catch (error) {
-      throw new Error(`Failed to fetch BTC tip: ${error}`)
+      throw new Error(`Failed to fetch BTC tip height: ${error}`)
     }
   }
 }
