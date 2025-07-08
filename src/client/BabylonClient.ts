@@ -1,4 +1,5 @@
 import {
+  BankExtension,
   Coin,
   QueryClient,
   createProtobufRpcClient,
@@ -20,6 +21,7 @@ export class BabylonClient {
   private queryClient: QueryClient
   private incentiveQueryClient: incentivequery.QueryClientImpl
   private btclightclientQueryClient: btclightclientquery.QueryClientImpl
+  private bankExtension: BankExtension
   protected config: BabylonClientConfig
 
   constructor(config: BabylonClientConfig) {
@@ -29,6 +31,7 @@ export class BabylonClient {
   private async init(): Promise<void> {
     const tmClient = await Tendermint34Client.connect(this.config.rpc)
     this.queryClient = QueryClient.withExtensions(tmClient, setupBankExtension)
+    this.bankExtension = setupBankExtension(this.queryClient)
 
     const rpc = createProtobufRpcClient(this.queryClient)
     this.incentiveQueryClient = new incentivequery.QueryClientImpl(rpc)
@@ -120,8 +123,7 @@ export class BabylonClient {
    */
   async getBalance(address: string, denom: string = "ubbn"): Promise<number> {
     try {
-      const { bank } = setupBankExtension(this.queryClient)
-      const balance = await bank.balance(address, denom)
+      const balance = await this.bankExtension.bank.balance(address, denom)
       return Number(balance?.amount ?? 0)
     } catch (error) {
       throw new Error(`Failed to fetch balance for ${address}: ${error}`)
