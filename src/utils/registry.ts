@@ -3,16 +3,12 @@ import { GeneratedType, Registry } from "@cosmjs/proto-signing"
 import * as incentivetx from "../generated/babylon/incentive/tx"
 import * as btcstakingtx from "../generated/babylon/btcstaking/v1/tx"
 import { MessageFns } from "../generated/google/protobuf/any"
+import { REGISTRY_TYPE_URLS } from "./constants"
 
 // Define the structure of each proto to register
 type ProtoToRegister<T> = {
   typeUrl: string
   messageType: MessageFns<T>
-}
-
-export const REGISTRY_TYPE_URLS = {
-  MsgCreateBTCDelegation: "/babylon.btcstaking.v1.MsgCreateBTCDelegation",
-  MsgWithdrawReward: "/babylon.incentive.MsgWithdrawReward"
 }
 
 // List of protos to register in the registry

@@ -2,7 +2,7 @@ import { AminoTypes } from "@cosmjs/stargate"
 
 import * as btcstakingtx from "../generated/babylon/btcstaking/v1/tx"
 import * as incentivetx from "../generated/babylon/incentive/tx"
-import { REGISTRY_TYPE_URLS } from "./registry"
+import { REGISTRY_TYPE_URLS } from "./constants"
 
 const msgCreateBTCDelegationConverter = {
   [REGISTRY_TYPE_URLS.MsgCreateBTCDelegation]: {

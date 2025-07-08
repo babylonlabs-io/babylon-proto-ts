@@ -10,8 +10,7 @@ import { Tendermint34Client } from "@cosmjs/tendermint-rpc"
 import * as btclightclientquery from "../generated/babylon/btclightclient/v1/query"
 import * as incentivequery from "../generated/babylon/incentive/query"
 import * as incentivetx from "../generated/babylon/incentive/tx"
-import { REWARD_GAUGE_KEY_BTC_DELEGATION, BTC_STAKER } from "../utils/constants"
-import { REGISTRY_TYPE_URLS } from "../utils/registry"
+import { REWARD_GAUGE_KEY_BTC_DELEGATION, BTC_STAKER, REGISTRY_TYPE_URLS } from "../utils/constants"
 
 export interface BabylonClientConfig {
   rpc: string
