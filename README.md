@@ -7,6 +7,15 @@
       <a href="https://www.npmjs.com/package/@babylonlabs-io/babylon-proto-ts"><img src="https://badge.fury.io/js/babylon-proto-ts.svg" alt="npm version" height="18"></a>
     </p>
 </p>
+
+<div align="center">
+
+⚠️ **This repository is archived** ⚠️
+
+**Please use the new location:** [https://github.com/babylonlabs-io/babylon-toolkit/tree/main/packages/babylon-proto-ts](https://github.com/babylonlabs-io/babylon-toolkit/tree/main/packages/babylon-proto-ts)
+
+</div>
+
 <br/>
 
 ## 👨🏻‍💻 Installation
